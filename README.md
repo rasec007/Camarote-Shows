@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Camarote Shows
 
-## Getting Started
+Monorepo do ERP de agenciamento de shows. A especificação funcional fica em [`docs/camarote-shows-especificacao-refatoracao.md`](docs/camarote-shows-especificacao-refatoracao.md); o estado e a regra de relatório por fase estão em [`docs/andamento-refatoracao.md`](docs/andamento-refatoracao.md).
 
-First, run the development server:
+## Estrutura
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
+- `server`: API Fastify, autenticação, PostgreSQL e Socket.io.
+- `shared`: schemas Zod e tipos compartilhados.
+- `web`: aplicação React/Vite para desktop e telas responsivas.
+- `mobile`: aplicação React/Vite mobile-first com PWA.
+- `server/migrations`: migrations SQL do PostgreSQL.
+- `minio`: política de acesso restrito e criação automática dos buckets privados.
+
+## Desenvolvimento local
+
+Use Node.js 22+ e pnpm 10+. Copie `.env.example` para `.env`, configure segredos JWT aleatórios com pelo menos 32 caracteres e preencha as credenciais da Evolution API. O padrão de desenvolvimento do Compose é exclusivo para uso local.
+
+```sh
+pnpm install
+docker compose up -d postgres minio minio-init
+docker compose exec -T postgres psql -U camarote -d camarote_shows < server/migrations/001_initial_schema.sql
+docker compose exec -T postgres psql -U camarote -d camarote_shows < server/migrations/002_arquivos.sql
+pnpm --filter @camarote/server bootstrap:admin
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Antes do bootstrap, configure `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`, `BOOTSTRAP_ADMIN_NAME` e `BOOTSTRAP_COMPANY_NAME` no `.env`. O comando só cria a empresa e o primeiro superadministrador quando ainda não há usuários.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+A API inicia em `http://localhost:3333`, o web em `http://localhost:5173` e o mobile em `http://localhost:5174`. O banco publica a porta `5433` por padrão para não conflitar com instalações locais do PostgreSQL.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Configure `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` e `POSTGRES_PORT` no `.env` para mudar os valores locais. Em produção, use segredos próprios e credenciais restritas.
 
-## Learn More
+O MinIO local fica em `http://localhost:9000` e o console administrativo em `http://localhost:9001`. O Compose cria os buckets privados `contratos`, `financeiro`, `rh` e `arquivos` e um usuário de aplicação com acesso limitado a eles. A API grava somente metadados no PostgreSQL e entrega URLs assinadas com validade de cinco minutos; os documentos não ficam públicos.
 
-To learn more about Next.js, take a look at the following resources:
+## VPS com EasyPanel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+O arquivo [`docker-compose.easypanel.yml`](docker-compose.easypanel.yml) prepara os serviços PostgreSQL 16, MinIO, API, web e PWA mobile com volumes persistentes para banco e arquivos. O domínio principal é `https://appcamaroteshows.com.br`, o PWA mobile usa `https://mobile.appcamaroteshows.com.br` e os links privados de arquivos usam `https://arquivos.appcamaroteshows.com.br`. No EasyPanel, conecte o repositório Git, use esse arquivo Compose e configure os segredos de produção como variáveis do projeto: `POSTGRES_PASSWORD`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `S3_ACCESS_KEY` e `S3_SECRET_KEY`. Gere valores fortes e exclusivos para o VPS. Configure os registros DNS desses três domínios para o VPS e publique `web` e `mobile` em seus respectivos domínios.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+No painel do EasyPanel, encaminhe o serviço `minio` pela porta interna `9000` em `arquivos.appcamaroteshows.com.br`. Não publique a porta `9001` do console administrativo na internet aberta; restrinja-a pela autenticação/rede do painel ou VPN. O tráfego da aplicação e os links assinados usam o endpoint S3 público, enquanto a API usa `http://minio:9000` pela rede interna. Mantenha backups externos dos volumes do PostgreSQL e do MinIO: volumes no mesmo VPS protegem contra reinício de contêiner, mas não contra perda do servidor.
 
-## Deploy on Vercel
+## Sessão e notificações
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+O login retorna um access token de 15 minutos e grava um refresh token rotativo em cookie `HttpOnly`. Convites e redefinições usam links de uso único enviados pelo WhatsApp via Evolution API. O usuário precisa estar ativo em cada requisição autenticada. Socket.io autentica pelo access token e distribui notificações PostgreSQL apenas às empresas vinculadas ao usuário.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+A Fase 2 entrega o shell web/mobile, seleção de empresa padrão vinculada ao usuário, menus filtrados por perfil, logout sempre acessível no PWA e invalidação de cache via Socket.io. As telas dos módulos continuam como espaços reservados até suas fases de implementação.
+
+## Publicação por fase
+
+Depois de validar cada fase, faça commit e push para o GitHub se o CLI estiver autenticado e o remote configurado. Para autenticar pelo terminal, use `gh auth login -h github.com --git-protocol https --web` e confirme com `gh auth status`. Na primeira publicação, crie o repositório privado com `gh repo create Camarote-Shows --private --source=. --remote=origin --push`; primeiro adicione e commite as alterações locais. Nas fases seguintes, use `git push origin main`. O arquivo `.env` não deve ser adicionado ao Git.
+
+## Decisões registradas
+
+A especificação deixa perguntas de autorização em aberto. Até a matriz final ser definida, a API aplica a matriz indicada no prompt mestre e exige vínculo explícito com artista; ausência de vínculo não concede acesso implícito. Ao concluir cada fase, o relatório lista o que foi entregue e descreve as fases restantes; acompanhe [`docs/andamento-refatoracao.md`](docs/andamento-refatoracao.md).

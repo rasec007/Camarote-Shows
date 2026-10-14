@@ -1,0 +1,26 @@
+{
+  "name": "@camarote/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "tsx watch src/index.ts", "build": "tsc", "start": "node dist/index.js", "bootstrap:admin": "tsx src/seed-admin.ts", "migrate": "tsx src/migrate.ts", "migrate:prod": "node dist/migrate.js", "lint": "tsc --noEmit" },
+  "dependencies": {
+    "@camarote/shared": "workspace:*",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.0.1",
+    "@fastify/helmet": "^13.0.1",
+    "@fastify/jwt": "^9.1.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/multipart": "^9.0.3",
+    "@aws-sdk/client-s3": "^3.777.0",
+    "@aws-sdk/s3-request-presigner": "^3.777.0",
+    "argon2": "^0.41.1",
+    "fastify": "^5.2.1",
+    "fastify-type-provider-zod": "^4.0.2",
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.1",
+    "socket.io": "^4.8.1",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": { "@types/node": "^22.0.0", "@types/pg": "^8.11.10", "tsx": "^4.19.2", "typescript": "^5.0.0" }
+}

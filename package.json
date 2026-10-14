@@ -3,25 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "16.4.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
-  },
-  "devDependencies": {
-    "@tailwindcss/turbopack": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.4.0",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "dev": "pnpm --filter @camarote/shared build && pnpm --parallel --filter @camarote/server --filter @camarote/web --filter @camarote/mobile dev",
+    "dev:server": "pnpm --filter @camarote/shared build && pnpm --filter @camarote/server dev",
+    "dev:web": "pnpm --filter @camarote/shared build && pnpm --filter @camarote/web dev",
+    "dev:mobile": "pnpm --filter @camarote/shared build && pnpm --filter @camarote/mobile dev",
+    "build": "pnpm --filter @camarote/server --filter @camarote/shared --filter @camarote/web --filter @camarote/mobile -r --workspace-concurrency=1 build",
+    "start": "pnpm --filter @camarote/server start",
+    "lint": "pnpm --filter @camarote/server --filter @camarote/shared --filter @camarote/web --filter @camarote/mobile -r lint"
   },
   "packageManager": "pnpm@12.11.2"
 }

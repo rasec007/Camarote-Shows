@@ -1,0 +1,112 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-camarote_shows}
+      POSTGRES_USER: ${POSTGRES_USER:-camarote}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina uma senha forte para o PostgreSQL}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Defina usuário administrador do MinIO}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Defina senha forte do MinIO}
+    volumes:
+      - minio_data:/data
+    expose: ["9000", "9001"]
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: ["/bin/sh", "/init-minio.sh"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Defina usuário administrador do MinIO}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Defina senha forte do MinIO}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Defina a chave de aplicação MinIO}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Defina o segredo da aplicação MinIO}
+    volumes:
+      - ./minio/init-minio.sh:/init-minio.sh:ro
+      - ./minio/policy.json:/policy.json:ro
+    restart: "no"
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 3333
+      DATABASE_URL: postgres://${POSTGRES_USER:-camarote}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-camarote_shows}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Defina um segredo JWT de 32+ caracteres}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Defina um segredo JWT de 32+ caracteres}
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://appcamaroteshows.com.br}
+      MOBILE_ORIGIN: ${MOBILE_ORIGIN:-https://mobile.appcamaroteshows.com.br}
+      COOKIE_SECURE: "true"
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
+      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-}
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-https://arquivos.appcamaroteshows.com.br}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Defina a chave de aplicação MinIO}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Defina o segredo da aplicação MinIO}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      MAX_FILE_SIZE_BYTES: ${MAX_FILE_SIZE_BYTES:-26214400}
+    expose: ["3333"]
+
+  migrate:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    command: ["node", "server/dist/migrate.js"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-camarote}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-camarote_shows}
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      args:
+        VITE_API_URL: /api
+    restart: unless-stopped
+    depends_on: [server]
+    expose: ["80"]
+
+  mobile:
+    build:
+      context: .
+      dockerfile: mobile/Dockerfile
+      args:
+        VITE_API_URL: /api
+    restart: unless-stopped
+    depends_on: [server]
+    expose: ["80"]
+
+volumes:
+  postgres_data:
+  minio_data:
