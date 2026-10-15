@@ -32,18 +32,29 @@ Para autenticar o GitHub CLI no terminal, executar `gh auth login -h github.com 
 - **Fase 5 — Contratos:** concluída em 15/10/2026. Entrega: geração 1:1 por evento, checklist, anexos privados MinIO/S3 com URL assinada, renegociação transacional, parcelas previstas, bloqueio por igualdade numérica exata no PostgreSQL, cancelamento e envio para cobrança com notificação Evolution. Migration 004 associa arquivos privados aos contratos.
 - **Fase 6 — Banda e cobrança:** concluída em 15/10/2026. Entrega: API e telas de Banda/Cobrança, filtros de período/estado/status/diária/produção, recebimentos associados à negociação com validação transacional concorrente no PostgreSQL, view `v_banda` com recebido/retido/saldo, baixa de produção/diária e histórico do Camarote com valor. O envio para cobrança grava o valor de Camarote e a data. Migration 005 atualiza a view e instala o limite; migrations 006/007 suportam importação auditável e removem default inválido de recebimento.
 - **Fase 7 — Financeiro completo:** concluída em 15/10/2026. Entrega: telas e APIs para contas a receber/pagar, retenções e ajustes de valor final, parcelas com trava de saldo, movimentações avulsas com todos os dados obrigatórios, filtros por período/plano/banco, saldos pelas views, exportação XLSX e impressão/PDF pelo navegador. Migration 008 adiciona anexos financeiros privados, índices e validação transacional no banco. Contas quitadas são exibidas como “Pago”.
-- **Fase 8 — Cheques e RH:** pendente.
-- **Fase 9 — Dashboard:** pendente.
-- **Fase 10 — Auditoria:** pendente; a estrutura de trilha já existe na migration, e a interface/filtros pertencem a esta fase.
+- **Fase 8 — Cheques e RH:** concluída em 15/10/2026. Entrega: cheques por empresa/banco com número único, criação/edição/baixa/exclusão, filtros, impressão e XLSX; contracheque e rendimento/IR com upload privado MinIO/S3, filtros por ano/mês/tipo e acesso do funcionário apenas aos próprios documentos; plano de viagem com adiantamentos, despesas, anexos privados, saldo calculado por `v_planos_viagem` e encerramento. Migrations 009 e 010.
+- **Fase 9 — Dashboard:** concluída em 15/10/2026. Entrega: primeira tela após login no desktop e mobile, com rótulo Dashboard no menu; resumo mensal por categoria e plano, filtrado por empresa/ano/banco e calculado por `v_dashboard_mensal`; indicadores de eventos do mês, contratos bloqueados, contas a receber/pagar e vencidas. Perfis sem permissão de relatórios veem o painel inicial sem dados financeiros. Migration 011.
+- **Fase 10 — Auditoria:** concluída em 15/10/2026. Entrega: trigger PostgreSQL genérico para operações INSERT/UPDATE/DELETE, atribuição do usuário autenticado via contexto assíncrono do request e contexto transacional do driver `pg`, captura de antes/depois sem hash de senha, consulta por empresa/período/tabela/operação e detalhe dos registros com acesso restrito à administração.
+
+## Próximas etapas do plano original (§18.5)
+
+- **Etapa 11 — Migração de dados:** conferir a carga completa dos CSVs legados, mapear os option sets e booleanos, identificar duplicidades e registros inválidos e validar os saldos recalculados pelas views.
+- **Etapa 12 — Homologação e corte:** homologar os fluxos lado a lado por perfil, corrigir divergências encontradas e preparar a entrada em produção no VPS/EasyPanel.
 
 ## Validação e ambiente de teste — 15/10/2026
 
 - `pnpm build` concluiu para server, shared, web e mobile; `git diff --check` sem erros.
 - Migrations 002 a 007 aplicadas no PostgreSQL local do WSL (porta 5434). API em `http://localhost:3333/health` responde `status: ok`.
 - Os CSVs existentes em `db/` foram analisados, mapeados e carregados pelo script idempotente `server/src/import-legacy-csv.ts`. A carga incluiu 3 empresas, 16 artistas, 5 clientes, 4 contratantes, 3 fornecedores, 3 bancos, 5 eventos, 1 contrato, 11 usuários e 12 auditorias. Saldos legados não são importados; são recalculados por views. O vínculo de evento ausente no CSV do contrato foi resolvido por correspondência única de artista e data. Usuários sem hash de senha foram importados inativos; vínculos artista ausentes no CSV foram ignorados.
-- A revisão das telas comparou `exemplo/telas/` com as duas cópias idênticas da especificação. A organização com título de módulo, filtros acima da grade, cabeçalhos fortes e formulários em modal foi mantida como referência; a navegação responsiva e o azul institucional continuam seguindo a stack e a identidade visual obrigatórias. Os campos e regras do financeiro conferem com §11.1–11.2, R28–R35 e §14.
+- A revisão visual adotou `exemplo/telas/index.html` como referência para a aplicação: moldura externa grafite, painel branco arredondado, cabeçalho superior com navegação em pílulas, tipografia Plus Jakarta Sans, cartões claros e formulários suaves. A tela de login segue a composição de `exemplo/telas/login.png`, com logo horizontal. Os campos e regras do financeiro conferem com §11.1–11.2, R28–R35 e §14.
 - Migration 008 aplicada no PostgreSQL local. Os endpoints `/financeiro/opcoes`, `/financeiro/contas?tipo=receber` e `/financeiro/movimentacoes` responderam HTTP 200 após autenticação. `pnpm build` e `git diff --check` concluíram sem erros; Vite mantém o aviso já conhecido de bundle web acima de 500 KB.
 - As rotas de catálogo, eventos e contratos responderam HTTP 200 após o login. A API de Banda e Cobrança respondeu HTTP 200; as listas vieram vazias porque o CSV não contém negociações/recebimentos e o contrato importado não está bloqueado.
 - A Evolution API aceitou o envio de uma mensagem de teste (HTTP 201) para o número informado pelo usuário.
 - Web em `http://localhost:5173/` e PWA mobile em `http://localhost:5174/` estão servindo para inspeção visual. Login foi validado com a conta bootstrap, sem exibir a senha.
 - O push das fases ainda está pendente: autenticação GitHub estava inválida na última verificação. Reautenticar no terminal e publicar os commits locais.
+
+## Validação das Fases 8–10 — 15/10/2026
+
+- Migrations 009, 010 e 011 aplicadas ao PostgreSQL local. As views `v_planos_viagem` e `v_dashboard_mensal` e as consultas de cheques, RH, resumo mensal e auditoria foram verificadas no banco.
+- Rotas autenticadas `/dashboard/resumo`, `/financeiro/cheques`, `/rh/documentos`, `/viagens` e `/auditoria` responderam HTTP 200 com a conta local de administração.
+- `pnpm build` concluiu para server, shared, web e mobile; `git diff --check` sem erros. Permanece o aviso de bundle web acima de 500 KB por causa do ExcelJS e da aplicação.

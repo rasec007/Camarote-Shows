@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 170" role="img" aria-labelledby="title">
+  <title id="title">Camarote Shows</title>
+  <g fill="none" stroke="#C59B27" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M150 85a70 70 0 1 1-20-49"/>
+    <path d="m135 38-48 47 48 47M86 85h61"/>
+    <path d="M194 18v134" stroke-width="5"/>
+  </g>
+  <text x="228" y="92" fill="#080808" font-family="Arial, Helvetica, sans-serif" font-size="91" font-weight="800" letter-spacing="13">CAMAROTE</text>
+  <text x="456" y="151" fill="#626262" font-family="Arial, Helvetica, sans-serif" font-size="47" font-weight="700" letter-spacing="20">SHOWS</text>
+</svg>

@@ -64,14 +64,15 @@ export async function fileRoutes(app: FastifyInstance): Promise<void> {
   app.get("/arquivos/:id/url", { preHandler: [authenticate] }, async (request, reply) => {
     const params = z.object({ id: z.string().uuid() }).safeParse(request.params);
     if (!params.success) return reply.code(400).send({ message: "Arquivo inválido." });
-    const found = await pool.query<{ empresa_id: string; contexto: FileContext; bucket: string; object_key: string; nome_original: string; destinatario_usuario_id: string | null }>(
-      "SELECT empresa_id,contexto,bucket,object_key,nome_original,destinatario_usuario_id FROM arquivos WHERE id=$1", [params.data.id],
+    const found = await pool.query<{ empresa_id: string; contexto: FileContext; bucket: string; object_key: string; nome_original: string; destinatario_usuario_id: string | null; document_rh_exists: boolean }>(
+      "SELECT a.empresa_id,a.contexto,a.bucket,a.object_key,a.nome_original,a.destinatario_usuario_id,EXISTS(SELECT 1 FROM documentos_rh d WHERE d.arquivo_id=a.id) AS document_rh_exists FROM arquivos a WHERE a.id=$1", [params.data.id],
     );
     const item = found.rows[0];
     if (!item) return reply.code(404).send({ message: "Arquivo não encontrado." });
     const user = request.authUser!;
     if (!(await hasEmpresaAccess(user.id, item.empresa_id))) return reply.code(403).send({ message: "Você não tem acesso a esta empresa." });
     if (item.contexto === "rh") {
+      if (!item.document_rh_exists) return reply.code(404).send({ message: "Documento de RH não encontrado." });
       if (item.destinatario_usuario_id !== user.id && !["super_administrador", "administrador"].includes(user.perfil)) return reply.code(403).send({ message: "Você não tem acesso a este documento de RH." });
     } else {
       await authorizeModulo(modules[item.contexto], "leitura")(request, reply);

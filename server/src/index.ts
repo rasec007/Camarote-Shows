@@ -14,7 +14,8 @@ import { eventosRoutes } from "./routes/eventos.routes.js";
 import { contratosRoutes } from "./routes/contratos.routes.js";
 import { bandaRoutes } from "./routes/banda.routes.js";
 import { financeiroRoutes } from "./routes/financeiro.routes.js";
-import { pool } from "./database.js";
+import { operacaoRoutes } from "./routes/operacao.routes.js";
+import { auditContext, pool } from "./database.js";
 import { attachRealtime } from "./realtime.js";
 
 const accessSecret = process.env.JWT_ACCESS_SECRET;
@@ -26,6 +27,7 @@ const app = Fastify({ logger: true, bodyLimit: Number(process.env.MAX_FILE_SIZE_
 app.setValidatorCompiler(validatorCompiler);
 app.setSerializerCompiler(serializerCompiler);
 app.decorateRequest("authUser", null);
+app.addHook("onRequest", (request, _reply, done) => auditContext.run({}, done));
 
 await app.register(helmet);
 await app.register(cors, { origin: allowedOrigins, credentials: true, methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] });
@@ -39,6 +41,7 @@ await app.register(eventosRoutes);
 await app.register(contratosRoutes);
 await app.register(bandaRoutes);
 await app.register(financeiroRoutes);
+await app.register(operacaoRoutes);
 await app.register(fileRoutes);
 await app.register(async (routes) => {
   routes.get("/health", async () => {

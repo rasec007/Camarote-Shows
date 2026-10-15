@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Camarote Shows - Sistema de Gestão</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+          colors: {
+            brand: {
+              gold: '#C59B27',
+              goldLight: '#DFB743',
+              dark: '#111317',
+              surface: '#F8FAFC',
+              card: '#FFFFFF'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#0c0e12] min-h-screen p-4 md:p-8 flex items-center justify-center font-sans antialiased">
+
+  <!-- FRAME EXTERNO FLUTUANTE COM CANTOS ULTRA-ARREDONDADOS (ESTILO REFERÊNCIA) -->
+  <div class="w-full max-w-[1600px] h-[92vh] bg-white rounded-[32px] shadow-2xl flex flex-col overflow-hidden border border-white/20">
+
+    <!-- TOPBAR / NAVEGAÇÃO SUPERIOR REFINADA -->
+    <header class="px-8 py-5 border-b border-slate-100 flex items-center justify-between bg-white">
+      <!-- Marca / Logo -->
+      <div class="flex items-center gap-6">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-gold to-brand-goldLight flex items-center justify-center text-white font-bold text-xl shadow-md shadow-brand-gold/20">
+            C
+          </div>
+          <div>
+            <h1 class="text-base font-bold tracking-tight text-brand-dark leading-tight">CAMAROTE</h1>
+            <p class="text-[10px] tracking-widest text-brand-gold font-semibold uppercase">Shows & Eventos</p>
+          </div>
+        </div>
+
+        <!-- Menu Pills Arredondados -->
+        <nav class="hidden xl:flex items-center bg-slate-100/80 p-1.5 rounded-full border border-slate-200/60">
+          <button class="px-5 py-2 text-xs font-semibold rounded-full text-slate-600 hover:text-black transition">
+            <i class="fa-solid fa-chart-pie mr-1.5 opacity-70"></i> Dashboard
+          </button>
+          <button class="px-5 py-2 text-xs font-semibold rounded-full text-slate-600 hover:text-black transition">
+            <i class="fa-regular fa-id-badge mr-1.5 opacity-70"></i> Cadastro
+          </button>
+          <button class="px-5 py-2 text-xs font-bold rounded-full bg-brand-dark text-white shadow-sm flex items-center">
+            <i class="fa-regular fa-calendar-days mr-1.5 text-brand-gold"></i> Eventos
+          </button>
+          <button class="px-5 py-2 text-xs font-semibold rounded-full text-slate-600 hover:text-black transition">
+            <i class="fa-solid fa-music mr-1.5 opacity-70"></i> Banda
+          </button>
+          <button class="px-5 py-2 text-xs font-semibold rounded-full text-slate-600 hover:text-black transition">
+            <i class="fa-solid fa-receipt mr-1.5 opacity-70"></i> Cobrança
+          </button>
+          <button class="px-5 py-2 text-xs font-semibold rounded-full text-slate-600 hover:text-black transition">
+            <i class="fa-solid fa-wallet mr-1.5 opacity-70"></i> Financeiro
+          </button>
+        </nav>
+      </div>
+
+      <!-- Usuário & Ações Rápidas -->
+      <div class="flex items-center gap-4">
+        <button class="w-10 h-10 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center transition">
+          <i class="fa-solid fa-rotate text-sm"></i>
+        </button>
+
+        <div class="flex items-center gap-3 pl-3 border-l border-slate-200">
+          <div class="w-10 h-10 rounded-full bg-slate-900 text-brand-gold flex items-center justify-center font-bold text-sm">
+            CV
+          </div>
+          <div class="text-left hidden md:block">
+            <div class="text-xs font-bold text-slate-800">CARLOS CÉSAR L. VENANCIO</div>
+            <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span> Administrador
+            </div>
+          </div>
+          <button class="ml-2 w-8 h-8 rounded-full text-slate-400 hover:text-red-500 transition flex items-center justify-center">
+            <i class="fa-solid fa-arrow-right-from-bracket text-sm"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- CORPO PRINCIPAL COM CONTEÚDO ARREDONDADO -->
+    <main class="flex-1 bg-[#F9FBFC] p-8 overflow-y-auto">
+
+      <!-- Linha de Cabeçalho do Módulo & KPIs -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">Agenda & Contratos</h2>
+          <p class="text-xs text-slate-500">Mês de referência: Outubro de 2026 • Camarote Shows e Eventos Ltda</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button class="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 flex items-center gap-2">
+            <i class="fa-solid fa-filter text-slate-400"></i> Filtrar Artista
+          </button>
+          <button onclick="document.getElementById('modalProposta').classList.remove('hidden')" class="px-5 py-2.5 bg-brand-dark hover:bg-black text-white rounded-xl text-xs font-bold shadow-md shadow-black/10 flex items-center gap-2 transition">
+            <i class="fa-solid fa-plus text-brand-gold"></i> Novo Orçamento
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI CARDS COM BORDAS ARREDONDADAS -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <span class="text-xs font-medium text-slate-400">Total a Receber</span>
+            <h3 class="text-xl font-bold text-slate-900 mt-1">R$ 400.000,00</h3>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-amber-50 text-brand-gold flex items-center justify-center text-lg">
+            <i class="fa-solid fa-arrow-trend-up"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <span class="text-xs font-medium text-slate-400">Total Recebido</span>
+            <h3 class="text-xl font-bold text-emerald-600 mt-1">R$ 200.000,00</h3>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <span class="text-xs font-medium text-slate-400">Saldo Pendente</span>
+            <h3 class="text-xl font-bold text-slate-900 mt-1">R$ 200.000,00</h3>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-scale-balanced"></i>
+          </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+          <div>
+            <span class="text-xs font-medium text-slate-400">Comissão Camarote</span>
+            <h3 class="text-xl font-bold text-brand-gold mt-1">R$ 26.000,00</h3>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-slate-900 text-brand-gold flex items-center justify-center text-lg">
+            <i class="fa-solid fa-crown"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABELA / LISTAGEM ESTILO CARDS ARREDONDADOS -->
+      <div class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <h4 class="text-sm font-bold text-slate-800">Contratos & Eventos Recentes</h4>
+          <span class="text-xs text-slate-400">Exibindo 2 agendamentos ativos</span>
+        </div>
+
+        <div class="divide-y divide-slate-100 text-xs">
+          <!-- Linha 1 -->
+          <div class="p-4 hover:bg-slate-50/80 transition flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center">
+                <span class="text-[10px] font-semibold text-slate-400 uppercase">OUT</span>
+                <span class="text-base font-bold text-slate-800 leading-none">03</span>
+              </div>
+              <div>
+                <h5 class="text-sm font-bold text-slate-900">TATY GIRL</h5>
+                <p class="text-slate-400">Teresina / Piauí • Barrera Eventos</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-8">
+              <div class="text-right">
+                <span class="text-slate-400 text-[11px]">Cachê Total</span>
+                <div class="font-bold text-slate-800">R$ 400.000,00</div>
+              </div>
+              <div>
+                <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700">Entrada Vencida</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="w-9 h-9 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+                <button class="w-9 h-9 rounded-xl border border-slate-200 text-red-500 hover:bg-red-50 flex items-center justify-center transition">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Linha 2 -->
+          <div class="p-4 hover:bg-slate-50/80 transition flex items-center justify-between">
+            <div class="flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 flex flex-col items-center justify-center">
+                <span class="text-[10px] font-semibold text-slate-400 uppercase">OUT</span>
+                <span class="text-base font-bold text-slate-800 leading-none">29</span>
+              </div>
+              <div>
+                <h5 class="text-sm font-bold text-slate-900">JOELMA</h5>
+                <p class="text-slate-400">Icapuí / Ceará • Praça Pública</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-8">
+              <div class="text-right">
+                <span class="text-slate-400 text-[11px]">Cachê Total</span>
+                <div class="font-bold text-slate-800">R$ 350.000,00</div>
+              </div>
+              <div>
+                <span class="px-3 py-1 rounded-full text-[11px] font-bold bg-blue-100 text-blue-700">Reservado</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="w-9 h-9 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center transition">
+                  <i class="fa-regular fa-eye"></i>
+                </button>
+                <button class="w-9 h-9 rounded-xl border border-slate-200 text-red-500 hover:bg-red-50 flex items-center justify-center transition">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL DE ORÇAMENTO/PROPOSTA REDESENHADO COM CANTOS ARREDONDADOS E HIERARQUIA MODERNA -->
+  <div id="modalProposta" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
+
+      <!-- Cabeçalho do Modal -->
+      <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-brand-dark text-brand-gold flex items-center justify-center text-sm font-bold">
+            <i class="fa-regular fa-file-lines"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Novo Orçamento / Proposta</h3>
+            <p class="text-[11px] text-slate-400">Preencha os campos obrigatórios com asterisco (*)</p>
+          </div>
+        </div>
+        <button onclick="document.getElementById('modalProposta').classList.add('hidden')" class="w-8 h-8 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Conteúdo do Formulário -->
+      <div class="p-6 overflow-y-auto space-y-5 text-xs text-slate-700">
+
+        <!-- Bloco 1: Empresa e Artista -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold mb-1 text-slate-800">Empresa *</label>
+            <select class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-gold focus:outline-none">
+              <option>CAMAROTE SHOWS E EVENTOS LTDA</option>
+              <option>CMRT PRODUCOES LTDA</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-slate-800">Artista *</label>
+            <select class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-gold focus:outline-none font-medium">
+              <option>TATY GIRL</option>
+              <option>JOELMA</option>
+              <option>ERIC LAND</option>
+              <option>CHICABANA</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Bloco 2: Cliente, Data e Local -->
+        <div class="grid grid-cols-3 gap-4">
+          <div class="col-span-2">
+            <label class="block font-semibold mb-1 text-slate-800">Contratante / Cliente *</label>
+            <input type="text" placeholder="Nome do contratante" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-gold focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-slate-800">Data Início *</label>
+            <input type="date" value="2026-10-15" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-gold focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold mb-1 text-slate-800">Cidade / UF *</label>
+            <input type="text" placeholder="Ex: Fortaleza / CE" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-gold focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-slate-800">Local do Evento</label>
+            <input type="text" placeholder="Ex: Arena / Praça Pública" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-gold focus:outline-none">
+          </div>
+        </div>
+
+        <!-- Bloco 3: Informações Financeiras Arredondadas -->
+        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+          <span class="font-bold text-[11px] uppercase tracking-wider text-slate-500">Composição Financeira</span>
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block font-medium mb-1">Cachê (R$) *</label>
+              <input type="text" placeholder="0,00" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-800">
+            </div>
+            <div>
+              <label class="block font-medium mb-1">Produção (R$) *</label>
+              <input type="text" placeholder="0,00" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-800">
+            </div>
+            <div>
+              <label class="block font-medium mb-1">Retenção de Imposto</label>
+              <input type="text" placeholder="0,00" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl font-bold text-slate-800">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rodapé do Modal -->
+      <div class="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+        <button onclick="document.getElementById('modalProposta').classList.add('hidden')" class="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-100 transition">
+          Cancelar
+        </button>
+        <button class="px-6 py-2.5 rounded-xl bg-brand-dark hover:bg-black text-brand-gold font-bold shadow-md shadow-black/10 flex items-center gap-2 transition">
+          <i class="fa-solid fa-check"></i> Salvar Orçamento
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>

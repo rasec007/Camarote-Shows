@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import argon2 from "argon2";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { Perfil } from "@camarote/shared";
-import { pool } from "./database.js";
+import { auditContext, pool } from "./database.js";
 
 export type AuthUser = { id: string; perfil: Perfil; empresaPadraoId: string | null; podeVisualizarRelatorios: boolean };
 export type Modulo = "cadastros" | "eventos" | "contratos" | "banda" | "cobranca" | "financeiro" | "rh" | "auditoria" | "dashboard";
@@ -36,6 +36,9 @@ export async function authenticate(request: FastifyRequest, reply: FastifyReply)
       return reply.code(401).send({ message: "Seu perfil está desativado ou sua sessão expirou." });
     }
     request.authUser = { id: user.id, perfil: user.perfil, empresaPadraoId: user.empresa_padrao_id, podeVisualizarRelatorios: user.pode_visualizar_relatorios };
+    const context = auditContext.getStore();
+    if (context) context.userId = user.id;
+    else auditContext.enterWith({ userId: user.id });
   } catch {
     return reply.code(401).send({ message: "Autenticação necessária." });
   }

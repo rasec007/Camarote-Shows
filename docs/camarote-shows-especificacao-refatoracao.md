@@ -1038,6 +1038,7 @@ Ação: [Add] [Imprimir(PDF)] [Limpar] [XLSX]   Selecione o Período ‹ [DataCh
 - `p DarBaixaCheque`: "Deseja dar baixa nes…", Data da baixa, Fechar/Confirmar → só toast "Este cheque foi dado baixa!".
 - `p ExcluirCheque` → só toast "Dados excluídos com sucesso!".
 - Reconstruir do zero usando o tipo atual `cheque1` (§3) como modelo.
+- **Implementação desta refatoração (Fase 8):** cheque pertence à empresa e ao banco, registra tipo a pagar/receber, número único por empresa, agência, conta, emitente, beneficiário, emissão, vencimento, valor e observação. A tela permite criar, editar, filtrar, exportar e imprimir, além de registrar baixa com data.
 
 ### 11.4 Plano de contas (`g Plano_Contas`, SubMenu = `Plano_Conta`) [L]
 ```
@@ -1058,6 +1059,7 @@ RENDIMENTOS/IR  ┌Ação [👁][✎][🗑]│Ano│Funcionário│Arquivo┐   
 - `p CTChequeIR` ("Adicionar Contra Che…", tipo **`contrachequeir` apagado**): Tipo * (CONTRA CHEQUE / RENDIMENTO), Ano * (+ botão "+"), Mês *, Arquivo *, Funcionário *. Salvar só mostra "Contra Cheque/IR cadastrado com sucesso!".
 - `p ExcluirCtChequeIR` → só toast "Dados excluídos com sucesso!".
 - Opções de Ano/Mês: [NV]. Reconstruir do zero a partir do tipo atual `contra_cheque_ir` (§3).
+- **Implementação desta refatoração (Fase 8):** documentos privados em MinIO/S3, separados por funcionário, empresa, ano, mês e tipo. Administração envia e remove; funcionário pode consultar apenas os próprios documentos. Downloads usam URL assinada temporária.
 
 ### 12.2 Auditoria (`g Auditoria`) — inalcançável [L]
 ```
@@ -1067,9 +1069,11 @@ Ação: [Imprimir] [Limpar] [XLSX]    Selecione o Período ‹ [DataAgendaLista]
 - A tabela **ignora o filtro de período** [L].
 - `p DetalheAuditoria`: Tabela Afetada, Operação Realizada, Usuário Responsável, Data e Hora da Ação (só leitura), "Como Estava Antes" e "Como Está Agora" (listas de texto).
 - O único gerador de auditoria é o backend `teste` (contratante), que não roda no plano Free [L]. Na reconstrução: trigger Postgres genérico (§18).
+- **Implementação desta refatoração (Fase 10):** triggers registram INSERT/UPDATE/DELETE, usuário autenticado, tabela, operação, antes/depois e horário; filtros de data, tabela e operação respeitam a empresa ativa e o perfil administrador. Hashes de senha são removidos da trilha.
 
 ### 12.3 Plano de viagem — sem tela [L]
 Item "Despesas operacionais" (menu oculto) só grava Menu = `PlanoViagem`; não existe seção. Sobram `p PlanoViagem_Excluir` (tipo apagado `plano_viagem`, só toast) e os tipos atuais `plano_viagem1` e `pl_viagem_entrada_saida` (§3). Escopo a definir com o negócio [I].
+- **Implementação desta refatoração (Fase 8):** plano por empresa com descrição, evento e responsável opcionais, datas opcionais, lançamentos de adiantamento e despesa e saldo por view. Planos podem ser encerrados; lançamentos aceitam anexos privados financeiros.
 
 ### 12.4 Dashboard (`g Dashboard`, Menu/SubMenu = `Dashboard`) [L]
 ```
@@ -1081,6 +1085,7 @@ SELECIONE O ANO ‹ [DataGesCaixa] ›  SELECIONE A EMPRESA [DropEmpresaGestaoCa
 ```
 - **Resumo financeiro**: `rg DashboarResumoFinanceiro` = todas as opções de Financeiro (categorias) × `rg Plano_Contas` (planos da categoria); cada célula de mês = entradas − saídas das `mov_financeira` daquela categoria e plano no mês [L]. Na célula de janeiro lida, **empresa e banco selecionados não entram** [L]; demais meses e Total seguem o mesmo padrão [I].
 - **Indicadores**: gráficos montados apagando e recriando 13 registros `grafico` a cada troca de guia/filtro, a partir dos tipos apagados `grafico`, `cargo`, `contas_pagar_receber_parcela` e do option set apagado `tipo_usuario` → **não funciona** [L]. Quais indicadores eram exibidos: [NV] — definir com o negócio.
+- **Implementação desta refatoração (Fase 9):** entrada inicial após login. O resumo mensal usa a view `v_dashboard_mensal`, filtrada por empresa, ano e banco, com resultado por categoria/plano e total anual. Indicadores definidos: eventos no mês, contratos bloqueados, saldos a receber e pagar e contas vencidas. Perfis sem permissão de relatórios recebem uma página inicial sem dados financeiros.
 
 ### 12.5 Mobile (`g Mobile`, quando o SO **não** é Windows) [L]
 - `g Menu` (logo, "Seja bem-vindo", **Agenda**, **Sair**) com visível = não e **sem condição** → nunca aparece; não há como sair.
@@ -1235,9 +1240,9 @@ Toasts de: exportação XLSX, guarda de exclusão de empresa por evento/conta, g
 
 | Item | Valor |
 |---|---|
-| Primária | `rgba(2, 5, 211, 1)` — #0205D3 [L] |
-| Contraste da primária | #FFFFFF [L] |
-| Texto | `rgba(9, 23, 71, 1)` — #091747 [L] |
+| Primária institucional | Dourado `#C59B27`; dourado claro `#DFB743` (marca e referência `exemplo/telas/index.html`) |
+| Contraste da primária | Grafite `#111317` e branco `#FFFFFF` |
+| Texto | Grafite `#111317` |
 | Superfície | #FFFFFF [L] |
 | Fundo | transparente [L] |
 | Destrutivo | #FF0000 [L] |
@@ -1246,7 +1251,8 @@ Toasts de: exportação XLSX, guarda de exclusão de empresa por evento/conta, g
 | Toast de sucesso de evento | fundo `rgba(30,136,229)` #1E88E5, texto branco [L] |
 | Item de menu ativo | fundo preto `rgba(0,0,0,1)` [L] |
 | Bordas de tabela | `rgba(236,236,236)` [L] |
-| Fontes | Poppins (títulos 24/400, células 14/300), Roboto 14 (cabeçalho do usuário) [L] |
+| Marca | Logo horizontal Camarote Shows: símbolo dourado, nome preto e “SHOWS” cinza; usar no login e cabeçalhos do sistema. A tela `exemplo/telas/login.png` é a referência de composição. |
+| Fontes | Plus Jakarta Sans (interface da referência `exemplo/telas/index.html`) |
 | Arredondamento | 5 px nas seções, 10 px em menus/popups [L] |
 | Larguras | login 1200 full width; dashboard 1080 fixa; menu 250–280; view mobile 393×852 [L] |
 | Botão de confirmação | estilo "BTN_Confirmar_Lilas" [L; cor NV] |
@@ -1665,9 +1671,9 @@ Saldos de Mov. financeira e Dashboard: views com `sum() over (partition by empre
 | 5 | Contratos: gerar (1 por evento), checklist e arquivos, negociação, bloquear (soma = cachê), cancelar, enviar para cobrança | §9.2–9.3 | 4 |
 | 6 | Banda/Cobrança: painel com fórmulas, recebimentos com limite, baixa de produção/diária, histórico do camarote | §10 | 5 |
 | 7 | Financeiro: contas com saldo por view, retenções/desconto/juros, parcelas (com edição real), avulsas completas, movimentação com filtros, XLSX/PDF | §11.1–11.2 | 3 |
-| 8 | Cheques, documentos de RH e plano de viagem — **do zero** (no Bubble não gravam) | §11.3, §12.1, §12.3 | 7 |
-| 9 | Dashboard: resumo financeiro por view; indicadores conforme decisão 7 | §12.4 | 7 |
-| 10 | Auditoria por trigger Postgres em todas as tabelas, com filtro de período | §12.2 | 1 |
+| 8 | Cheques, documentos privados de RH e plano de viagem com adiantamentos, despesas e saldo por view — reconstruídos | §11.3, §12.1, §12.3 | 7 |
+| 9 | Dashboard inicial após login: resumo financeiro em `v_dashboard_mensal`, filtros por empresa/ano/banco e indicadores definidos | §12.4 | 7 |
+| 10 | Auditoria automática via trigger PostgreSQL, atribuição de usuário, antes/depois e filtros de período/tabela/operação | §12.2 | 1 |
 | 11 | Migração: script que lê os CSVs, mapeia option sets para enums, SIM/NÃO → boolean, guarda `bubble_id`, recalcula saldos (não importa `saldo_number`), detecta contratos duplicados e movimentações avulsas vazias | §3, §17 | 3–8 |
 | 12 | Homologação lado a lado por perfil; corte | — | 11 |
 
