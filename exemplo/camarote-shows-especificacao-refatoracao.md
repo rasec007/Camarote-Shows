@@ -434,6 +434,8 @@ Conclusão [L]: **Cheque, Contracheque/IR e Auditoria existem como telas mas nã
 ### 5.4 Rotas sugeridas no Next.js [I]
 `/login`, `/redefinir-senha`, `/` (dashboard), `/cadastros/{usuarios|empresas|fornecedores|clientes|artistas|contratantes}`, `/eventos/{orcamentos|contratos|agenda|mapa}`, `/banda`, `/cobranca`, `/financeiro/{receber|pagar|movimentacao|cheques|plano-de-contas}`, `/rh/documentos`, `/auditoria`. Layout responsivo único; menu montado no servidor a partir do perfil.
 
+**Organização atual solicitada para o menu (web e mobile):** Dashboard sem submenu; Cadastro (Usuário, Empresa, Fornecedor, Cliente, Artista, Contratante); Evento (Orçamento/Proposta, Contrato, Agenda, Localização); Banda; Cobrança; Financeiro (Receber, Pagar, Movimentação Financeira, Plano de Contas); Sair. Ao selecionar Cadastro, Evento ou Financeiro, abrir diretamente a primeira tela do grupo, sem uma página-resumo intermediária. As opções do grupo permanecem visíveis como abas na tela correspondente. Itens internos respeitam o perfil e Sair encerra a sessão.
+
 ---
 
 ## 6. Fluxo de negócio ponta a ponta
@@ -1251,6 +1253,7 @@ Toasts de: exportação XLSX, guarda de exclusão de empresa por evento/conta, g
 | Toast de sucesso de evento | fundo `rgba(30,136,229)` #1E88E5, texto branco [L] |
 | Item de menu ativo | fundo preto `rgba(0,0,0,1)` [L] |
 | Bordas de tabela | `rgba(236,236,236)` [L] |
+| Listagens | Quando o status do registro for `inativo`, destacar toda a linha em vermelho `#FF0000`. Reduzir em 15% o espaçamento vertical das linhas das tabelas e dos itens equivalentes em listas mobile. |
 | Marca | Logo horizontal Camarote Shows: símbolo dourado, nome preto e “SHOWS” cinza; usar no login e cabeçalhos do sistema. A tela `exemplo/telas/login.png` é a referência de composição. |
 | Fontes | Plus Jakarta Sans (interface da referência `exemplo/telas/index.html`) |
 | Arredondamento | 5 px nas seções, 10 px em menus/popups [L] |

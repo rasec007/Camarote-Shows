@@ -273,7 +273,14 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     const params = idParams.safeParse(request.params); const parsed = usuarioCadastroSchema.safeParse(request.body);
     if (!params.success || !parsed.success) return reply.code(400).send({ message: "Confira os dados do usuário.", issues: parsed.success ? undefined : parsed.error.issues });
     const actor = request.authUser!; const data = parsed.data;
-    if (params.data.id === actor.id) return reply.code(400).send({ message: "Não é permitido alterar o próprio usuário por esta tela." });
+    if (params.data.id === actor.id) {
+      const result = await pool.query(
+        "UPDATE usuarios SET nome=$1,fone=$2,updated_at=now() WHERE id=$3",
+        [data.nome,data.fone,actor.id],
+      );
+      if (!result.rowCount) return reply.code(404).send({ message: "Usuário não encontrado." });
+      return { id: actor.id, message: "Dados pessoais atualizados." };
+    }
     if (data.perfil === "super_administrador" && actor.perfil !== "super_administrador") return reply.code(403).send({ message: "Somente um superadministrador pode definir esse perfil." });
     const available = await actorCompanies(actor.id);
     const target = await pool.query("SELECT 1 FROM usuario_empresas WHERE usuario_id=$1 AND empresa_id=ANY($2::uuid[])", [params.data.id,available]);
@@ -289,10 +296,11 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     try {
       await client.query("BEGIN");
       await client.query("SET CONSTRAINTS usuarios_empresa_padrao_vinculada_fk DEFERRED");
+      await client.query("INSERT INTO usuario_empresas(usuario_id,empresa_id) SELECT $1,unnest($2::uuid[]) ON CONFLICT DO NOTHING", [params.data.id,data.empresaIds]);
       const result = await client.query("UPDATE usuarios SET nome=$1,fone=$2,perfil=$3,status=$4,pode_visualizar_relatorios=$5,empresa_padrao_id=$6,updated_at=now() WHERE id=$7", [data.nome,data.fone,data.perfil,data.status,data.podeVisualizarRelatorios,data.empresaPadraoId,params.data.id]);
       if (!result.rowCount) { await client.query("ROLLBACK"); return reply.code(404).send({ message: "Usuário não encontrado." }); }
-      await client.query("DELETE FROM usuario_empresas WHERE usuario_id=$1", [params.data.id]);
-      await client.query("INSERT INTO usuario_empresas(usuario_id,empresa_id) SELECT $1,unnest($2::uuid[])", [params.data.id,data.empresaIds]);
+      await client.query("SET CONSTRAINTS usuarios_empresa_padrao_vinculada_fk IMMEDIATE");
+      await client.query("DELETE FROM usuario_empresas WHERE usuario_id=$1 AND NOT (empresa_id=ANY($2::uuid[]))", [params.data.id,data.empresaIds]);
       await client.query("DELETE FROM usuario_artistas WHERE usuario_id=$1", [params.data.id]);
       if (data.artistas.length) await client.query("INSERT INTO usuario_artistas(usuario_id,artista_id,acesso_total) SELECT $1,x.artista_id,x.acesso_total FROM unnest($2::uuid[],$3::boolean[]) x(artista_id,acesso_total)", [params.data.id,data.artistas.map((a) => a.artistaId),data.artistas.map((a) => a.acessoTotal)]);
       await client.query("COMMIT");
