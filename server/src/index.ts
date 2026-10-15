@@ -9,6 +9,11 @@ import rateLimit from "@fastify/rate-limit";
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { authRoutes } from "./routes/auth.routes.js";
 import { fileRoutes } from "./routes/file.routes.js";
+import { cadastrosRoutes } from "./routes/cadastros.routes.js";
+import { eventosRoutes } from "./routes/eventos.routes.js";
+import { contratosRoutes } from "./routes/contratos.routes.js";
+import { bandaRoutes } from "./routes/banda.routes.js";
+import { financeiroRoutes } from "./routes/financeiro.routes.js";
 import { pool } from "./database.js";
 import { attachRealtime } from "./realtime.js";
 
@@ -29,6 +34,11 @@ await app.register(jwt, { secret: accessSecret, sign: { expiresIn: "15m" } });
 await app.register(rateLimit, { max: 120, timeWindow: "1 minute" });
 await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024, files: 1 } });
 await app.register(authRoutes, { prefix: "/auth" });
+await app.register(cadastrosRoutes, { prefix: "/cadastros" });
+await app.register(eventosRoutes);
+await app.register(contratosRoutes);
+await app.register(bandaRoutes);
+await app.register(financeiroRoutes);
 await app.register(fileRoutes);
 await app.register(async (routes) => {
   routes.get("/health", async () => {

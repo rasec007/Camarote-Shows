@@ -1,0 +1,1 @@
+ALTER TABLE auditoria ADD COLUMN IF NOT EXISTS bubble_id text UNIQUE;

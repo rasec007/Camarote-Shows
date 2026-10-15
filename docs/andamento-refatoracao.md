@@ -27,11 +27,23 @@ Para autenticar o GitHub CLI no terminal, executar `gh auth login -h github.com 
 
 - **Fase 1 — Setup do monorepo:** concluída em 14/10/2026. Inclui workspace pnpm, API Fastify, pacote compartilhado Zod, apps React/Vite web e PWA mobile, PostgreSQL 16, schema inicial completo, autenticação JWT com refresh cookie, Argon2id, convite e redefinição via Evolution API, Socket.io com PostgreSQL LISTEN/NOTIFY, MinIO privado com buckets e URLs assinadas e definição de implantação no VPS via EasyPanel.
 - **Fase 2 — Casca web e mobile:** concluída em 14/10/2026. Inclui shell responsivo web, shell mobile-first PWA, menus filtrados por perfil, seleção de empresa padrão com verificação de vínculo no backend, logout acessível, autenticação nos dois clientes, Socket.io e invalidação de cache TanStack Query. Telas dos módulos seguem como placeholders das próximas fases.
-- **Fase 3 — Cadastros:** pendente.
-- **Fase 4 — Eventos:** pendente.
-- **Fase 5 — Contratos:** pendente.
-- **Fase 6 — Banda e cobrança:** pendente.
-- **Fase 7 — Financeiro completo:** pendente.
+- **Fase 3 — Cadastros:** concluída em 15/10/2026. Entrega: APIs e telas para empresas/bancos, clientes, fornecedores, artistas, contratantes, usuários com convites Evolution e vínculos de empresa/artista, plano de contas, validação CPF/CNPJ, normalização no backend e bloqueios de exclusão. Migration 003 aplica escopo por empresa.
+- **Fase 4 — Eventos:** concluída em 15/10/2026. Entrega: criação/edição de orçamento e bloqueio, checagem de conflito por artista/dia, alerta visual e WhatsApp via Evolution, agenda FullCalendar no web e fluxos mobile-first de proposta/bloqueio. A API impede exclusão de evento com contrato.
+- **Fase 5 — Contratos:** concluída em 15/10/2026. Entrega: geração 1:1 por evento, checklist, anexos privados MinIO/S3 com URL assinada, renegociação transacional, parcelas previstas, bloqueio por igualdade numérica exata no PostgreSQL, cancelamento e envio para cobrança com notificação Evolution. Migration 004 associa arquivos privados aos contratos.
+- **Fase 6 — Banda e cobrança:** concluída em 15/10/2026. Entrega: API e telas de Banda/Cobrança, filtros de período/estado/status/diária/produção, recebimentos associados à negociação com validação transacional concorrente no PostgreSQL, view `v_banda` com recebido/retido/saldo, baixa de produção/diária e histórico do Camarote com valor. O envio para cobrança grava o valor de Camarote e a data. Migration 005 atualiza a view e instala o limite; migrations 006/007 suportam importação auditável e removem default inválido de recebimento.
+- **Fase 7 — Financeiro completo:** concluída em 15/10/2026. Entrega: telas e APIs para contas a receber/pagar, retenções e ajustes de valor final, parcelas com trava de saldo, movimentações avulsas com todos os dados obrigatórios, filtros por período/plano/banco, saldos pelas views, exportação XLSX e impressão/PDF pelo navegador. Migration 008 adiciona anexos financeiros privados, índices e validação transacional no banco. Contas quitadas são exibidas como “Pago”.
 - **Fase 8 — Cheques e RH:** pendente.
 - **Fase 9 — Dashboard:** pendente.
 - **Fase 10 — Auditoria:** pendente; a estrutura de trilha já existe na migration, e a interface/filtros pertencem a esta fase.
+
+## Validação e ambiente de teste — 15/10/2026
+
+- `pnpm build` concluiu para server, shared, web e mobile; `git diff --check` sem erros.
+- Migrations 002 a 007 aplicadas no PostgreSQL local do WSL (porta 5434). API em `http://localhost:3333/health` responde `status: ok`.
+- Os CSVs existentes em `db/` foram analisados, mapeados e carregados pelo script idempotente `server/src/import-legacy-csv.ts`. A carga incluiu 3 empresas, 16 artistas, 5 clientes, 4 contratantes, 3 fornecedores, 3 bancos, 5 eventos, 1 contrato, 11 usuários e 12 auditorias. Saldos legados não são importados; são recalculados por views. O vínculo de evento ausente no CSV do contrato foi resolvido por correspondência única de artista e data. Usuários sem hash de senha foram importados inativos; vínculos artista ausentes no CSV foram ignorados.
+- A revisão das telas comparou `exemplo/telas/` com as duas cópias idênticas da especificação. A organização com título de módulo, filtros acima da grade, cabeçalhos fortes e formulários em modal foi mantida como referência; a navegação responsiva e o azul institucional continuam seguindo a stack e a identidade visual obrigatórias. Os campos e regras do financeiro conferem com §11.1–11.2, R28–R35 e §14.
+- Migration 008 aplicada no PostgreSQL local. Os endpoints `/financeiro/opcoes`, `/financeiro/contas?tipo=receber` e `/financeiro/movimentacoes` responderam HTTP 200 após autenticação. `pnpm build` e `git diff --check` concluíram sem erros; Vite mantém o aviso já conhecido de bundle web acima de 500 KB.
+- As rotas de catálogo, eventos e contratos responderam HTTP 200 após o login. A API de Banda e Cobrança respondeu HTTP 200; as listas vieram vazias porque o CSV não contém negociações/recebimentos e o contrato importado não está bloqueado.
+- A Evolution API aceitou o envio de uma mensagem de teste (HTTP 201) para o número informado pelo usuário.
+- Web em `http://localhost:5173/` e PWA mobile em `http://localhost:5174/` estão servindo para inspeção visual. Login foi validado com a conta bootstrap, sem exibir a senha.
+- O push das fases ainda está pendente: autenticação GitHub estava inválida na última verificação. Reautenticar no terminal e publicar os commits locais.

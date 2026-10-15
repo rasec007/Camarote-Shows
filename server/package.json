@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": { "dev": "tsx watch src/index.ts", "build": "tsc", "start": "node dist/index.js", "bootstrap:admin": "tsx src/seed-admin.ts", "migrate": "tsx src/migrate.ts", "migrate:prod": "node dist/migrate.js", "lint": "tsc --noEmit" },
+  "scripts": { "dev": "tsx watch src/index.ts", "build": "tsc", "start": "node dist/index.js", "bootstrap:admin": "tsx src/seed-admin.ts", "migrate": "tsx src/migrate.ts", "migrate:prod": "node dist/migrate.js", "import:legacy": "node dist/import-legacy-csv.js", "lint": "tsc --noEmit" },
   "dependencies": {
     "@camarote/shared": "workspace:*",
     "@fastify/cookie": "^11.0.2",
