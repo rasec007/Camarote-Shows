@@ -236,6 +236,16 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     return result.rows;
   });
 
+  app.get("/usuarios/artistas", { preHandler: readGuard }, async (request) => {
+    const companies = await actorCompanies(request.authUser!.id);
+    if (!companies.length) return [];
+    const result = await pool.query(
+      "SELECT id,nome,empresa_id FROM artistas WHERE empresa_id=ANY($1::uuid[]) ORDER BY nome LIMIT 500",
+      [companies],
+    );
+    return result.rows;
+  });
+
   app.post("/usuarios", { preHandler: writeGuard }, async (request, reply) => {
     const parsed = usuarioCadastroSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ message: "Confira os dados do usuário.", issues: parsed.error.issues });
