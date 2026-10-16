@@ -53,6 +53,8 @@ services:
         condition: service_completed_successfully
       migrate:
         condition: service_completed_successfully
+      bootstrap-admin:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       SERVER_HOST: 0.0.0.0
@@ -86,6 +88,23 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://${POSTGRES_USER:-camarote}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-camarote_shows}
+
+  bootstrap-admin:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    command: ["node", "server/dist/seed-admin.js"]
+    restart: "no"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-camarote}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-camarote_shows}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-}
+      BOOTSTRAP_COMPANY_NAME: ${BOOTSTRAP_COMPANY_NAME:-}
 
   web:
     build:
