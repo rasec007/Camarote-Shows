@@ -21,8 +21,8 @@ import { attachRealtime } from "./realtime.js";
 const accessSecret = process.env.JWT_ACCESS_SECRET;
 if (!accessSecret || accessSecret.length < 32) throw new Error("JWT_ACCESS_SECRET deve ter pelo menos 32 caracteres.");
 
-const allowedOrigins = [process.env.WEB_ORIGIN ?? "http://localhost:5173", process.env.MOBILE_ORIGIN ?? "http://localhost:5174"];
-if (process.env.NODE_ENV !== "production") allowedOrigins.push("http://localhost:5173", "http://localhost:5174");
+const allowedOrigins: (string | RegExp)[] = [process.env.WEB_ORIGIN ?? "http://localhost:5173", process.env.MOBILE_ORIGIN ?? "http://localhost:5174"];
+if (process.env.NODE_ENV !== "production") allowedOrigins.push("http://localhost:5173", "http://localhost:5174", /^http:\/\/(localhost|127\.0\.0\.1):\d+$/);
 const app = Fastify({ logger: true, bodyLimit: Number(process.env.MAX_FILE_SIZE_BYTES ?? 25 * 1024 * 1024) + 2 * 1024 * 1024 });
 app.setValidatorCompiler(validatorCompiler);
 app.setSerializerCompiler(serializerCompiler);

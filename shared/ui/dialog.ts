@@ -10,7 +10,7 @@ type DialogOptions = {
   onError: (error: unknown) => void;
 };
 
-// Shared by web and mobile; modal dialogs keep focus inside and support Escape.
+// Shared by web and mobile; modal dialogs keep focus inside and close only through their buttons.
 export function showSystemDialog(options: DialogOptions) {
   if (document.querySelector("dialog.app-system-dialog")) return;
   const dialog = document.createElement("dialog");
@@ -54,11 +54,7 @@ export function showSystemDialog(options: DialogOptions) {
   const close = () => { if (!pending) dialog.close(); };
   cancel.addEventListener("click", close);
   dialog.querySelector(".app-system-dialog-close")!.addEventListener("click", close);
-  dialog.addEventListener("click", (event) => { if (event.target === dialog) {
-    const bounds = dialog.getBoundingClientRect();
-    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) close();
-  } });
-  dialog.addEventListener("cancel", (event) => { if (pending) event.preventDefault(); });
+  dialog.addEventListener("cancel", (event) => event.preventDefault());
   dialog.addEventListener("close", () => dialog.remove(), { once: true });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();

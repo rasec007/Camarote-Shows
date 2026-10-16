@@ -6,8 +6,8 @@ import { pool } from "./database.js";
 type RealtimePayload = { table: string; operation: string; empresa_id: string; id: string };
 
 export async function attachRealtime(app: FastifyInstance): Promise<void> {
-  const allowedOrigins = [process.env.WEB_ORIGIN ?? "http://localhost:5173", process.env.MOBILE_ORIGIN ?? "http://localhost:5174"];
-  if (process.env.NODE_ENV !== "production") allowedOrigins.push("http://localhost:5173", "http://localhost:5174");
+  const allowedOrigins: (string | RegExp)[] = [process.env.WEB_ORIGIN ?? "http://localhost:5173", process.env.MOBILE_ORIGIN ?? "http://localhost:5174"];
+  if (process.env.NODE_ENV !== "production") allowedOrigins.push("http://localhost:5173", "http://localhost:5174", /^http:\/\/(localhost|127\.0\.0\.1):\d+$/);
   const io = new SocketServer(app.server, { cors: { origin: allowedOrigins, credentials: true } });
   app.decorate("io", io);
   const client = new pg.Client({ connectionString: process.env.DATABASE_URL, application_name: "camarote-realtime-listener" });

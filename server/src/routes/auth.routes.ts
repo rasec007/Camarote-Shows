@@ -109,7 +109,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       await client.query("COMMIT");
       const accessUrl = `${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/primeiro-acesso?token=${encodeURIComponent(token)}`;
       try {
-        await whatsapp.sendText(data.fone, `Olá ${data.nome}, seu acesso ao Camarote Shows foi criado. Defina sua senha neste link (válido por 48 horas): ${accessUrl}`);
+        await whatsapp.sendText(data.fone, `Olá ${data.nome}, seu acesso ao Camarote Shows foi criado. Seu e-mail de acesso é: ${data.email}. Defina sua senha neste link (válido por 48 horas): ${accessUrl}`);
       } catch (error) {
         request.log.error({ err: error, userId }, "Não foi possível enviar o convite pela WAHA");
         return reply.code(502).send({ message: "Usuário criado, mas o convite não foi enviado. Confira a WAHA e use 'Esqueci minha senha' para receber o link." });
@@ -159,9 +159,13 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post("/esqueci-senha", { config: { rateLimit: { max: 3, timeWindow: "15 minutes" } } }, async (request, reply) => {
     const parsed = z.object({ email: z.string().email() }).safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ message: "Informe um e-mail válido." });
-    const found = await pool.query<{ id: string; fone: string; nome: string }>("SELECT id,fone,nome FROM usuarios WHERE email=lower(btrim($1)) AND status='ativo'", [parsed.data.email]);
+    const found = await pool.query<{ id: string; fone: string | null; nome: string }>("SELECT id,fone,nome FROM usuarios WHERE email=lower(btrim($1)) AND status='ativo'", [parsed.data.email]);
     if (found.rows[0]) {
       const user = found.rows[0];
+      if (!user.fone?.trim()) {
+        request.log.warn({ userId: user.id, reason: "missing_phone" }, "Link de redefinição não criado: usuário sem WhatsApp cadastrado");
+        return reply.send({ message: "Se o cadastro existir, enviaremos um link de redefinição pelo WhatsApp." });
+      }
       const token = randomBytes(32).toString("base64url");
       const tokenHash = hashToken(token);
       await pool.query("UPDATE tokens_acesso SET usado_em=now() WHERE usuario_id=$1 AND finalidade='redefinicao' AND usado_em IS NULL", [user.id]);

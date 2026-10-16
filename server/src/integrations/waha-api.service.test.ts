@@ -54,6 +54,7 @@ test("recusa número inválido e configuração ausente antes de chamar WAHA", a
   configure(t);
   const send = t.mock.method(globalThis, "fetch", async () => new Response(null, { status: 201 }));
   await assert.rejects(new WahaApiService().sendText("sem telefone", "Teste"), /WhatsApp inválido/);
+  await assert.rejects(new WahaApiService().sendText(null, "Teste"), /não cadastrado/);
   delete process.env.WAHA_API_KEY;
   await assert.rejects(new WahaApiService().sendText("11999990000", "Teste"), /WAHA não configurado/);
   assert.equal(send.mock.callCount(), 0);

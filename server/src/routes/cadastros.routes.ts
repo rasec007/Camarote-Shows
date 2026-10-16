@@ -21,6 +21,7 @@ function moduleLabel(table: string): string {
   const labels: Record<string, string> = {
     usuario_empresas: "Empresas",
     usuario_artistas: "Artistas",
+    usuarios: "Usuários",
     empresas: "Empresas",
     eventos: "Eventos / Agenda",
     contratos: "Contratos",
@@ -43,6 +44,50 @@ function moduleLabel(table: string): string {
     auditoria: "Auditoria",
   };
   return labels[table] ?? table.split("_").map((part) => part.charAt(0).toLocaleUpperCase("pt-BR") + part.slice(1)).join(" ");
+}
+
+async function findRecordModules(client: PoolClient, tableName: string, recordId: string, actorId?: string): Promise<string[]> {
+  const foreignKeys = await client.query<{ schema_name: string; table_name: string; column_name: string }>(
+    `SELECT DISTINCT source_ns.nspname AS schema_name, source_table.relname AS table_name, source_column.attname AS column_name
+     FROM pg_constraint fk
+     JOIN pg_class source_table ON source_table.oid=fk.conrelid
+     JOIN pg_namespace source_ns ON source_ns.oid=source_table.relnamespace
+     JOIN LATERAL unnest(fk.conkey, fk.confkey) AS key_columns(source_attnum, target_attnum) ON true
+     JOIN pg_attribute source_column ON source_column.attrelid=fk.conrelid AND source_column.attnum=key_columns.source_attnum
+     JOIN pg_attribute target_column ON target_column.attrelid=fk.confrelid AND target_column.attnum=key_columns.target_attnum
+     WHERE fk.contype='f' AND fk.confrelid=to_regclass($1) AND target_column.attname='id'
+     ORDER BY source_ns.nspname, source_table.relname, source_column.attname`,
+    [`public.${tableName}`],
+  );
+  const modules = new Set<string>();
+  for (const foreignKey of foreignKeys.rows) {
+    if (tableName === "usuarios" && ["tokens_acesso", "tokens_refresh"].includes(foreignKey.table_name)) continue;
+    const source = `${quoteIdentifier(foreignKey.schema_name)}.${quoteIdentifier(foreignKey.table_name)}`;
+    const column = quoteIdentifier(foreignKey.column_name);
+    let linked;
+    if (tableName === "empresas" && actorId && foreignKey.table_name === "usuario_empresas") {
+      linked = await client.query(`SELECT EXISTS(SELECT 1 FROM ${source} WHERE ${column}=$1 AND usuario_id<>$2) AS linked`, [recordId, actorId]);
+    } else if (tableName === "empresas" && actorId && foreignKey.table_name === "usuarios") {
+      linked = await client.query(`SELECT EXISTS(SELECT 1 FROM ${source} WHERE ${column}=$1 AND id<>$2) AS linked`, [recordId, actorId]);
+    } else {
+      linked = await client.query(`SELECT EXISTS(SELECT 1 FROM ${source} WHERE ${column}=$1) AS linked`, [recordId]);
+    }
+    if (linked.rows[0]?.linked) {
+      const label = foreignKey.table_name === "usuario_artistas"
+        ? (tableName === "artistas" ? "Usuários" : "Artistas")
+        : foreignKey.table_name === "usuario_empresas"
+          ? (tableName === "empresas" ? "Usuários" : "Empresas")
+          : moduleLabel(foreignKey.table_name);
+      modules.add(label);
+    }
+  }
+  return [...modules].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function recordLinksMessage(title: string, modules: string[]): string {
+  return modules.length
+    ? `Não é possível excluir ${title.toLocaleLowerCase("pt-BR")}: existem vínculos nos módulos ${modules.join(", ")}.`
+    : `${title} não possui vínculos com outros módulos.`;
 }
 
 async function findUserModules(client: PoolClient, userId: string): Promise<string[]> {
@@ -92,10 +137,12 @@ function userModulesMessage(modules: string[]): string {
     : "Este usuário não possui vínculos com outros módulos.";
 }
 
-function companyLinksMessage(bancos: boolean, usuarios: string[]): string {
+function companyLinksMessage(bancos: boolean, usuarios: string[], modules: string[] = []): string {
   const links: string[] = [];
   if (bancos) links.push("há bancos vinculados");
   if (usuarios.length) links.push(`ela está vinculada aos usuários ${usuarios.join(", ")}`);
+  const otherModules = modules.filter((module) => !["Bancos", "Usuários", "Empresas"].includes(module));
+  if (otherModules.length) links.push(`há registros vinculados nos módulos ${otherModules.join(", ")}`);
   return `Não é possível excluir esta empresa: ${links.join("; ")}.`;
 }
 
@@ -122,13 +169,13 @@ function errorResponse(error: unknown, reply: FastifyReply, duplicateMessage: st
 
 type Catalog = {
   path: string; table: string; schema: z.ZodType; title: string;
-  columns: string[]; global?: boolean; address?: boolean; searchColumn?: string; dependencies?: Array<[string, string]>;
+  columns: string[]; global?: boolean; address?: boolean; searchColumn?: string; searchColumns?: string[]; dependencies?: Array<[string, string]>;
 };
 const catalogs: Catalog[] = [
-  { path: "clientes", table: "clientes", schema: pessoaCadastroSchema, title: "Cliente", columns: ["nome", "cpf_cnpj", "email", "celular", "responsavel", "observacoes", "endereco", "numero", "complemento", "status"], address: true, searchColumn: "cpf_cnpj", dependencies: [["eventos", "cliente_id"]] },
-  { path: "fornecedores", table: "fornecedores", schema: pessoaCadastroSchema, title: "Fornecedor", columns: ["nome", "cpf_cnpj", "email", "celular", "responsavel", "observacoes", "endereco", "numero", "complemento", "status"], address: true, searchColumn: "cpf_cnpj", dependencies: [["contas", "fornecedor_id"]] },
-  { path: "contratantes", table: "contratantes", schema: contratanteCadastroSchema, title: "Contratante", columns: ["nome", "cpf_cnpj", "email", "celular", "responsavel", "observacoes", "status"], searchColumn: "cpf_cnpj", dependencies: [["eventos", "contratante_id"], ["contratos", "contratante_id"]] },
-  { path: "artistas", table: "artistas", schema: artistaCadastroSchema, title: "Artista", global: true, columns: ["nome", "email", "celular", "responsavel", "comissao_camarote", "imposto", "status"], dependencies: [["eventos", "artista_id"], ["contratos", "artista_id"]] },
+  { path: "clientes", table: "clientes", schema: pessoaCadastroSchema, title: "Cliente", columns: ["nome", "cpf_cnpj", "email", "celular", "responsavel", "observacoes", "endereco", "numero", "complemento", "status"], address: true, searchColumn: "cpf_cnpj", searchColumns: ["email"], dependencies: [["eventos", "cliente_id"]] },
+  { path: "fornecedores", table: "fornecedores", schema: pessoaCadastroSchema, title: "Fornecedor", columns: ["nome", "cpf_cnpj", "email", "celular", "responsavel", "observacoes", "endereco", "numero", "complemento", "status"], address: true, searchColumn: "cpf_cnpj", searchColumns: ["email"], dependencies: [["contas", "fornecedor_id"]] },
+  { path: "contratantes", table: "contratantes", schema: contratanteCadastroSchema, title: "Contratante", columns: ["nome", "cpf_cnpj", "email", "celular", "responsavel", "observacoes", "status"], searchColumn: "cpf_cnpj", searchColumns: ["email"], dependencies: [["eventos", "contratante_id"], ["contratos", "contratante_id"]] },
+  { path: "artistas", table: "artistas", schema: artistaCadastroSchema, title: "Artista", global: true, columns: ["nome", "email", "celular", "responsavel", "comissao_camarote", "imposto", "status"], searchColumns: ["responsavel", "email"], dependencies: [["eventos", "artista_id"], ["contratos", "artista_id"]] },
   { path: "planos-de-contas", table: "planos_contas", schema: planoContasCadastroSchema, title: "Plano de Contas", columns: ["nome", "categoria", "tipo"], dependencies: [["contas", "plano_contas_id"], ["movimentacoes", "plano_contas_id"]] },
 ];
 
@@ -138,10 +185,13 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
   const writeGuard = [authenticate, authorizeModulo("cadastros", "escrita")];
 
   app.get("/empresas", { preHandler: readGuard }, async (request) => {
+    const query = z.object({ q: z.string().trim().max(120).optional() }).parse(request.query);
     const companies = await pool.query(
       `SELECT e.id,e.nome,e.cnpj,e.email,e.fone,e.endereco,e.numero,e.complemento,e.responsavel,e.padrao,e.status
        FROM empresas e JOIN usuario_empresas ue ON ue.empresa_id=e.id
-       WHERE ue.usuario_id=$1 AND e.nome <> 'INDEFINIDO' ORDER BY e.nome`, [request.authUser!.id],
+       WHERE ue.usuario_id=$1 AND e.nome <> 'INDEFINIDO'
+         AND ($2::text IS NULL OR e.nome ILIKE '%'||$2||'%' OR e.cnpj ILIKE '%'||$2||'%' OR e.email ILIKE '%'||$2||'%')
+       ORDER BY e.nome`, [request.authUser!.id, query.q ?? null],
     );
     return companies.rows;
   });
@@ -193,8 +243,13 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
        (SELECT padrao FROM empresas WHERE id=$1) AS padrao`, [empresaId, request.authUser!.id],
     );
     const found = refs.rows[0]!;
-    if (found.bancos || found.usuarios.length) return reply.code(409).send({ message: companyLinksMessage(found.bancos, found.usuarios) });
-    if (found.eventos || found.contas) return reply.code(409).send({ message: "Não é possível excluir a empresa porque existem eventos ou contas vinculados." });
+    const linksClient = await pool.connect();
+    let modules: string[];
+    try { modules = await findRecordModules(linksClient, "empresas", empresaId, request.authUser!.id); }
+    finally { linksClient.release(); }
+    if (found.bancos || found.usuarios.length || found.eventos || found.contas || modules.length) {
+      return reply.code(409).send({ message: companyLinksMessage(found.bancos, found.usuarios, modules), modules });
+    }
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -221,10 +276,16 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     );
     const bancos = Boolean(result.rows[0]?.bancos);
     const usuarios = result.rows[0]?.usuarios ?? [];
+    const client = await pool.connect();
+    let modules: string[];
+    try { modules = await findRecordModules(client, "empresas", params.data.id, request.authUser!.id); }
+    catch (error) { return errorResponse(error, reply, "Não foi possível consultar os vínculos da empresa."); }
+    finally { client.release(); }
     return {
       bancos,
       usuarios,
-      message: bancos || usuarios.length ? companyLinksMessage(bancos, usuarios) : "Esta empresa não possui bancos ou outros usuários vinculados.",
+      modules,
+      message: bancos || usuarios.length || modules.length ? companyLinksMessage(bancos, usuarios, modules) : "Esta empresa não possui vínculos com outros módulos.",
     };
   });
 
@@ -254,23 +315,61 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     return { id: params.data.id };
   });
 
+  app.get("/bancos/:id/vinculos", { preHandler: writeGuard }, async (request, reply) => {
+    const params = idParams.safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ message: "Banco inválido." });
+    const bank = await pool.query<{ empresa_id: string }>("SELECT empresa_id FROM bancos WHERE id=$1", [params.data.id]);
+    if (!bank.rows[0] || !(await hasEmpresaAccess(request.authUser!.id, bank.rows[0].empresa_id))) return reply.code(404).send({ message: "Banco não encontrado." });
+    const client = await pool.connect();
+    try {
+      const modules = await findRecordModules(client, "bancos", params.data.id);
+      return { modules, message: recordLinksMessage("Banco", modules) };
+    } catch (error) { return errorResponse(error, reply, "Não foi possível consultar os vínculos do banco."); }
+    finally { client.release(); }
+  });
+
   app.delete("/bancos/:id", { preHandler: writeGuard }, async (request, reply) => {
     const params = idParams.safeParse(request.params);
     if (!params.success) return reply.code(400).send({ message: "Banco inválido." });
     const bank = await pool.query<{ empresa_id: string }>("SELECT empresa_id FROM bancos WHERE id=$1", [params.data.id]);
     if (!bank.rows[0] || !(await hasEmpresaAccess(request.authUser!.id, bank.rows[0].empresa_id))) return reply.code(404).send({ message: "Banco não encontrado." });
-    try { await pool.query("DELETE FROM bancos WHERE id=$1", [params.data.id]); return reply.code(204).send(); }
-    catch (error) { return errorResponse(error, reply, "Não foi possível excluir o banco."); }
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT id FROM bancos WHERE id=$1 FOR UPDATE", [params.data.id]);
+      const modules = await findRecordModules(client, "bancos", params.data.id);
+      if (modules.length) { await client.query("ROLLBACK"); return reply.code(409).send({ message: recordLinksMessage("Banco", modules), modules }); }
+      await client.query("DELETE FROM bancos WHERE id=$1", [params.data.id]);
+      await client.query("COMMIT");
+      return reply.code(204).send();
+    } catch (error) { await client.query("ROLLBACK"); return errorResponse(error, reply, "Não foi possível excluir o banco."); }
+    finally { client.release(); }
   });
 
   for (const catalog of catalogs) {
     const table = catalog.table;
     app.get(`/${catalog.path}`, { preHandler: readGuard }, async (request, reply) => {
       const companyId = catalog.global ? null : await activeCompany(request, reply); if (!catalog.global && !companyId) return;
-      const query = z.object({ q: z.string().trim().max(120).optional(), status: z.enum(["ativo", "inativo"]).optional() }).safeParse(request.query);
+      const query = z.object({ q: z.string().trim().max(120).optional(), documento: z.string().trim().max(30).optional(), status: z.enum(["ativo", "inativo"]).optional() }).safeParse(request.query);
       if (!query.success) return reply.code(400).send({ message: "Filtros inválidos." });
       const conditions = catalog.global ? [] : ["empresa_id=$1"]; const values: unknown[] = catalog.global ? [] : [companyId];
-      if (query.data.q) { values.push(`%${query.data.q.toLocaleUpperCase("pt-BR")}%`); conditions.push(`(nome ILIKE $${values.length}${catalog.searchColumn ? ` OR ${catalog.searchColumn} ILIKE $${values.length}` : ""})`); }
+      if (query.data.q) {
+        values.push(`%${query.data.q.toLocaleUpperCase("pt-BR")}%`);
+        const qIndex = values.length;
+        const searchColumns = [catalog.searchColumn, ...(catalog.searchColumns ?? [])].filter((column): column is string => Boolean(column));
+        let searchCondition = [`nome ILIKE $${qIndex}`, ...searchColumns.map((column) => `${column} ILIKE $${qIndex}`)].join(" OR ");
+        const queryDigits = query.data.q.replace(/\D/g, "");
+        if (queryDigits && catalog.searchColumn === "cpf_cnpj") {
+          values.push(`%${queryDigits}%`);
+          searchCondition += ` OR regexp_replace(${catalog.searchColumn}, '[^0-9]', '', 'g') ILIKE $${values.length}`;
+        }
+        conditions.push(`(${searchCondition})`);
+      }
+      const documentDigits = query.data.documento?.replace(/\D/g, "");
+      if (documentDigits && catalog.searchColumn === "cpf_cnpj") {
+        values.push(`%${documentDigits}%`);
+        conditions.push(`regexp_replace(${catalog.searchColumn}, '[^0-9]', '', 'g') ILIKE $${values.length}`);
+      }
       if (query.data.status) { values.push(query.data.status); conditions.push(`status=$${values.length}`); }
       const result = await pool.query(`SELECT * FROM ${table}${conditions.length ? ` WHERE ${conditions.join(" AND ")}` : ""} ORDER BY nome${catalog.global ? "" : " LIMIT 500"}`, values);
       return result.rows;
@@ -307,18 +406,35 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
       } catch (error) { return errorResponse(error, reply, `${catalog.title} já cadastrado com estes dados.`); }
     });
 
+    app.get(`/${catalog.path}/:id/vinculos`, { preHandler: writeGuard }, async (request, reply) => {
+      const params = idParams.safeParse(request.params); const companyId = catalog.global ? null : await activeCompany(request, reply); if (!catalog.global && !companyId) return;
+      if (!params.success) return reply.code(400).send({ message: "Cadastro inválido." });
+      const client = await pool.connect();
+      try {
+        const found = await client.query(`SELECT 1 FROM ${table} WHERE id=$1${catalog.global ? "" : " AND empresa_id=$2"}`, catalog.global ? [params.data.id] : [params.data.id, companyId]);
+        if (!found.rowCount) return reply.code(404).send({ message: `${catalog.title} não encontrado.` });
+        const modules = await findRecordModules(client, table, params.data.id);
+        return { modules, message: recordLinksMessage(catalog.title, modules) };
+      } catch (error) { return errorResponse(error, reply, "Não foi possível consultar os vínculos do cadastro."); }
+      finally { client.release(); }
+    });
+
     app.delete(`/${catalog.path}/:id`, { preHandler: writeGuard }, async (request, reply) => {
       const params = idParams.safeParse(request.params); const companyId = catalog.global ? null : await activeCompany(request, reply); if (!catalog.global && !companyId) return;
       if (!params.success) return reply.code(400).send({ message: "Cadastro inválido." });
-      for (const [refTable, refColumn] of catalog.dependencies ?? []) {
-        const used = await pool.query(`SELECT 1 FROM ${refTable} WHERE ${refColumn}=$1 LIMIT 1`, [params.data.id]);
-        if (used.rowCount) return reply.code(409).send({ message: `Não é possível excluir ${catalog.title.toLocaleLowerCase("pt-BR")}: há registros vinculados.` });
-      }
+      const client = await pool.connect();
       try {
-        const result = await pool.query(`DELETE FROM ${table} WHERE id=$1${catalog.global ? "" : " AND empresa_id=$2"} RETURNING id`, catalog.global ? [params.data.id] : [params.data.id,companyId]);
-        if (!result.rowCount) return reply.code(404).send({ message: `${catalog.title} não encontrado.` });
+        await client.query("BEGIN");
+        const found = await client.query(`SELECT 1 FROM ${table} WHERE id=$1${catalog.global ? "" : " AND empresa_id=$2"} FOR UPDATE`, catalog.global ? [params.data.id] : [params.data.id,companyId]);
+        if (!found.rowCount) { await client.query("ROLLBACK"); return reply.code(404).send({ message: `${catalog.title} não encontrado.` }); }
+        const modules = await findRecordModules(client, table, params.data.id);
+        if (modules.length) { await client.query("ROLLBACK"); return reply.code(409).send({ message: recordLinksMessage(catalog.title, modules), modules }); }
+        const result = await client.query(`DELETE FROM ${table} WHERE id=$1${catalog.global ? "" : " AND empresa_id=$2"} RETURNING id`, catalog.global ? [params.data.id] : [params.data.id,companyId]);
+        if (!result.rowCount) { await client.query("ROLLBACK"); return reply.code(404).send({ message: `${catalog.title} não encontrado.` }); }
+        await client.query("COMMIT");
         return reply.code(204).send();
-      } catch (error) { return errorResponse(error, reply, `Não foi possível excluir ${catalog.title.toLocaleLowerCase("pt-BR")}.`); }
+      } catch (error) { await client.query("ROLLBACK"); return errorResponse(error, reply, `Não foi possível excluir ${catalog.title.toLocaleLowerCase("pt-BR")}.`); }
+      finally { client.release(); }
     });
   }
 
@@ -372,7 +488,7 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     } catch (error) { await client.query("ROLLBACK"); return errorResponse(error, reply, "Já existe um usuário com este e-mail."); }
     finally { client.release(); }
     const url = `${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/primeiro-acesso?token=${encodeURIComponent(token)}`;
-    try { await whatsapp.sendText(data.fone, `Olá ${data.nome}, seu acesso ao Camarote Shows foi criado. Defina sua senha neste link, válido por 48 horas: ${url}`); }
+    try { await whatsapp.sendText(data.fone, `Olá ${data.nome}, seu acesso ao Camarote Shows foi criado. Seu e-mail de acesso é: ${data.email}. Defina sua senha neste link, válido por 48 horas: ${url}`); }
     catch (error) { request.log.error({ err: error, userId }, "Usuário criado, mas o convite não foi enviado"); return reply.code(502).send({ id: userId, message: "Usuário criado, mas o convite não foi enviado. Confira a WAHA e solicite um novo acesso." }); }
     return reply.code(201).send({ id: userId, message: "Convite enviado pelo WhatsApp." });
   });

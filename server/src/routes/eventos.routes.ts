@@ -51,7 +51,7 @@ export async function eventosRoutes(app: FastifyInstance): Promise<void> {
     if (q.data.artista_id) { values.push(q.data.artista_id); where.push(`e.artista_id=$${values.length}`); }
     if (q.data.contratante_id) { values.push(q.data.contratante_id); where.push(`e.contratante_id=$${values.length}`); }
     if (q.data.estado) { values.push(q.data.estado.toLocaleUpperCase("pt-BR")); where.push(`e.estado=$${values.length}`); }
-    const result = await pool.query(`SELECT e.*,a.nome AS artista_nome,ct.nome AS contratante_nome,cl.nome AS cliente_nome FROM eventos e JOIN artistas a ON a.id=e.artista_id LEFT JOIN contratantes ct ON ct.id=e.contratante_id LEFT JOIN clientes cl ON cl.id=e.cliente_id WHERE ${where.join(" AND ")} ORDER BY e.inicio LIMIT 1000`, values);
+    const result = await pool.query(`SELECT e.*,a.nome AS artista_nome,ct.nome AS contratante_nome,cl.nome AS cliente_nome,(SELECT c.id FROM contratos c WHERE c.evento_id=e.id LIMIT 1) AS contrato_id FROM eventos e JOIN artistas a ON a.id=e.artista_id LEFT JOIN contratantes ct ON ct.id=e.contratante_id LEFT JOIN clientes cl ON cl.id=e.cliente_id WHERE ${where.join(" AND ")} ORDER BY e.inicio LIMIT 1000`, values);
     return result.rows;
   });
   app.post("/eventos", { preHandler: write }, async (request, reply) => {

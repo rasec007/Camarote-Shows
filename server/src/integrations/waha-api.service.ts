@@ -9,9 +9,12 @@ export class WahaApiService {
     this.session = process.env.WAHA_SESSION?.trim() || "default";
   }
 
-  async sendText(number: string, text: string): Promise<void> {
+  async sendText(number: string | null | undefined, text: string): Promise<void> {
     if (!this.baseUrl || !this.apiKey) {
       throw new Error("WAHA não configurado. Defina WAHA_API_URL e WAHA_API_KEY no ambiente.");
+    }
+    if (typeof number !== "string" || !number.trim()) {
+      throw new Error("Celular / WhatsApp não cadastrado.");
     }
 
     let recipient = number.replace(/\D/g, "");
