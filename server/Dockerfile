@@ -6,4 +6,4 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @camarote/shared build && pnpm --filter @camarote/server build
 ENV NODE_ENV=production
 EXPOSE 3333
-CMD ["node", "server/dist/index.js"]
+CMD ["sh", "-c", "node server/dist/migrate.js && node server/dist/seed-admin.js && exec node server/dist/index.js"]

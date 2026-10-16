@@ -9,6 +9,7 @@ ENV VITE_API_URL=$VITE_API_URL
 RUN pnpm --filter @camarote/mobile build
 
 FROM nginx:1.27-alpine
-COPY mobile/nginx.conf /etc/nginx/conf.d/default.conf
+ARG NGINX_CONFIG=nginx.standalone.conf
+COPY mobile/${NGINX_CONFIG} /etc/nginx/conf.d/default.conf
 COPY --from=build /repo/mobile/dist /usr/share/nginx/html
 EXPOSE 80

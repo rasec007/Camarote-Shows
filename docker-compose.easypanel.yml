@@ -112,6 +112,7 @@ services:
       dockerfile: web/Dockerfile
       args:
         VITE_API_URL: /api
+        NGINX_CONFIG: nginx.conf
     restart: unless-stopped
     depends_on: [server]
     expose: ["80"]
@@ -122,6 +123,7 @@ services:
       dockerfile: mobile/Dockerfile
       args:
         VITE_API_URL: /api
+        NGINX_CONFIG: nginx.conf
     restart: unless-stopped
     depends_on: [server]
     expose: ["80"]
