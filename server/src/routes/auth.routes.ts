@@ -163,8 +163,13 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     if (found.rows[0]) {
       const user = found.rows[0];
       const token = randomBytes(32).toString("base64url");
+      const tokenHash = hashToken(token);
       await pool.query("UPDATE tokens_acesso SET usado_em=now() WHERE usuario_id=$1 AND finalidade='redefinicao' AND usado_em IS NULL", [user.id]);
-      await pool.query("INSERT INTO tokens_acesso(usuario_id,token_hash,finalidade,expira_em) VALUES($1,$2,'redefinicao',now()+interval '30 minutes')", [user.id, hashToken(token)]);
+      const issued = await pool.query<{ id: string; expira_em: Date }>(
+        "INSERT INTO tokens_acesso(usuario_id,token_hash,finalidade,expira_em) VALUES($1,$2,'redefinicao',now()+interval '30 minutes') RETURNING id,expira_em",
+        [user.id, tokenHash],
+      );
+      request.log.info({ userId: user.id, tokenId: issued.rows[0]!.id, fingerprint: tokenHash.slice(0, 12), expiresAt: issued.rows[0]!.expira_em, instance: process.env.HOSTNAME }, "Link de redefinição criado");
       try {
         await whatsapp.sendText(user.fone, `Olá ${user.nome}, use este link para redefinir sua senha do Camarote Shows (válido por 30 minutos): ${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/redefinir-senha?token=${encodeURIComponent(token)}`);
       } catch (error) { request.log.error({ err: error, userId: user.id }, "Falha ao enviar link de redefinição"); }
@@ -175,16 +180,17 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
   app.post("/redefinir-senha", async (request, reply) => {
     const parsed = z.object({ token: z.string().min(20), senha: senhaSchema }).safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ message: "Token ou senha inválidos.", issues: parsed.error.issues });
+    const tokenHash = hashToken(parsed.data.token);
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       const found = await client.query<{ id: string; usuario_id: string; usado_em: Date | null; vigente: boolean }>(
         "SELECT id,usuario_id,usado_em,expira_em>now() AS vigente FROM tokens_acesso WHERE token_hash=$1 AND finalidade='redefinicao' FOR UPDATE",
-        [hashToken(parsed.data.token)],
+        [tokenHash],
       );
       const reset = found.rows[0];
       if (!reset) {
-        request.log.warn({ reason: "not_found" }, "Link de redefinição de senha não encontrado");
+        request.log.warn({ reason: "not_found", fingerprint: tokenHash.slice(0, 12), instance: process.env.HOSTNAME }, "Link de redefinição de senha não encontrado");
         await client.query("ROLLBACK");
         return reply.code(400).send({ message: "Este link de redefinição não foi reconhecido pelo servidor. Solicite um novo link." });
       }
