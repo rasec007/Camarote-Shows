@@ -27,6 +27,8 @@ Em andamento. Nenhum corte ou publicação em produção foi executado.
 
 ## Pendente para concluir a fase
 
+A comparação manual com o Bubble está descrita em [`roteiro-comparacao-bubble-fase12.md`](roteiro-comparacao-bubble-fase12.md). O usuário escolheu executar essa comparação sem compartilhar credenciais.
+
 1. Homologar os fluxos no web e no mobile com usuários ativos dos perfis administrador, financeiro, contrato, agenda, vendedor e produtor. Os usuários legados sem senha precisam de ativação segura; não enviar convites sem validar destinatários.
 2. Comparar os fluxos e cálculos lado a lado com o aplicativo Bubble original. É necessário acesso ao ambiente legado para validar os resultados visuais e operacionais.
 3. Exercitar criação, edição, bloqueio, cobrança, baixa, exportações e anexos com dados de homologação. Os CSVs atuais não trazem lançamentos financeiros para validar saldos não vazios.
