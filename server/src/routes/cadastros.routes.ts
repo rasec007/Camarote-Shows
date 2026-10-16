@@ -38,13 +38,13 @@ function errorResponse(error: unknown, reply: FastifyReply, duplicateMessage: st
 
 type Catalog = {
   path: string; table: string; schema: z.ZodType; title: string;
-  columns: string[]; address?: boolean; searchColumn?: string; dependencies?: Array<[string, string]>;
+  columns: string[]; global?: boolean; address?: boolean; searchColumn?: string; dependencies?: Array<[string, string]>;
 };
 const catalogs: Catalog[] = [
   { path: "clientes", table: "clientes", schema: pessoaCadastroSchema, title: "Cliente", columns: ["nome", "cpf_cnpj", "email", "celular", "responsavel", "observacoes", "endereco", "numero", "complemento", "status"], address: true, searchColumn: "cpf_cnpj", dependencies: [["eventos", "cliente_id"]] },
   { path: "fornecedores", table: "fornecedores", schema: pessoaCadastroSchema, title: "Fornecedor", columns: ["nome", "cpf_cnpj", "email", "celular", "responsavel", "observacoes", "endereco", "numero", "complemento", "status"], address: true, searchColumn: "cpf_cnpj", dependencies: [["contas", "fornecedor_id"]] },
   { path: "contratantes", table: "contratantes", schema: contratanteCadastroSchema, title: "Contratante", columns: ["nome", "cpf_cnpj", "email", "celular", "responsavel", "observacoes", "status"], searchColumn: "cpf_cnpj", dependencies: [["eventos", "contratante_id"], ["contratos", "contratante_id"]] },
-  { path: "artistas", table: "artistas", schema: artistaCadastroSchema, title: "Artista", columns: ["nome", "email", "celular", "responsavel", "comissao_camarote", "imposto", "status"], dependencies: [["eventos", "artista_id"], ["contratos", "artista_id"]] },
+  { path: "artistas", table: "artistas", schema: artistaCadastroSchema, title: "Artista", global: true, columns: ["nome", "email", "celular", "responsavel", "comissao_camarote", "imposto", "status"], dependencies: [["eventos", "artista_id"], ["contratos", "artista_id"]] },
   { path: "planos-de-contas", table: "planos_contas", schema: planoContasCadastroSchema, title: "Plano de Contas", columns: ["nome", "categoria", "tipo"], dependencies: [["contas", "plano_contas_id"], ["movimentacoes", "plano_contas_id"]] },
 ];
 
@@ -165,22 +165,22 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
   for (const catalog of catalogs) {
     const table = catalog.table;
     app.get(`/${catalog.path}`, { preHandler: readGuard }, async (request, reply) => {
-      const companyId = await activeCompany(request, reply); if (!companyId) return;
+      const companyId = catalog.global ? null : await activeCompany(request, reply); if (!catalog.global && !companyId) return;
       const query = z.object({ q: z.string().trim().max(120).optional(), status: z.enum(["ativo", "inativo"]).optional() }).safeParse(request.query);
       if (!query.success) return reply.code(400).send({ message: "Filtros inválidos." });
-      const conditions = ["empresa_id=$1"]; const values: unknown[] = [companyId];
+      const conditions = catalog.global ? [] : ["empresa_id=$1"]; const values: unknown[] = catalog.global ? [] : [companyId];
       if (query.data.q) { values.push(`%${query.data.q.toLocaleUpperCase("pt-BR")}%`); conditions.push(`(nome ILIKE $${values.length}${catalog.searchColumn ? ` OR ${catalog.searchColumn} ILIKE $${values.length}` : ""})`); }
       if (query.data.status) { values.push(query.data.status); conditions.push(`status=$${values.length}`); }
-      const result = await pool.query(`SELECT * FROM ${table} WHERE ${conditions.join(" AND ")} ORDER BY nome LIMIT 500`, values);
+      const result = await pool.query(`SELECT * FROM ${table}${conditions.length ? ` WHERE ${conditions.join(" AND ")}` : ""} ORDER BY nome${catalog.global ? "" : " LIMIT 500"}`, values);
       return result.rows;
     });
 
     app.post(`/${catalog.path}`, { preHandler: writeGuard }, async (request, reply) => {
-      const companyId = await activeCompany(request, reply); if (!companyId) return;
+      const companyId = catalog.global ? null : await activeCompany(request, reply); if (!catalog.global && !companyId) return;
       const parsed = catalog.schema.safeParse(request.body);
       if (!parsed.success) return reply.code(400).send({ message: `Confira os dados: ${catalog.title.toLocaleLowerCase("pt-BR")} com campos inválidos.`, issues: parsed.error.issues });
       const values = parsed.data as Record<string, unknown>;
-      values.empresa_id = companyId;
+      if (!catalog.global) values.empresa_id = companyId;
       if (catalog.address && values.endereco !== undefined) values.endereco = addressJson(values.endereco as string | null);
       const columns = Object.keys(values); const parameters = columns.map((_, index) => `$${index + 1}${columns[index] === "endereco" && catalog.address ? "::jsonb" : ""}`);
       try {
@@ -191,7 +191,7 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
 
     app.patch(`/${catalog.path}/:id`, { preHandler: writeGuard }, async (request, reply) => {
       const params = idParams.safeParse(request.params); const parsed = (catalog.schema as z.ZodObject<any>).partial().safeParse(request.body);
-      const companyId = await activeCompany(request, reply); if (!companyId) return;
+      const companyId = catalog.global ? null : await activeCompany(request, reply); if (!catalog.global && !companyId) return;
       if (!params.success || !parsed.success) return reply.code(400).send({ message: "Confira os dados informados.", issues: parsed.success ? undefined : parsed.error.issues });
       const values = parsed.data as Record<string, unknown>;
       delete values.empresa_id;
@@ -200,22 +200,22 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
       if (!columns.length) return reply.code(400).send({ message: "Informe ao menos um campo para atualizar." });
       const assignments = columns.map((column, index) => `${column}=$${index + 1}${column === "endereco" && catalog.address ? "::jsonb" : ""}`);
       try {
-        const result = await pool.query(`UPDATE ${table} SET ${assignments.join(",")} WHERE id=$${columns.length + 1} AND empresa_id=$${columns.length + 2} RETURNING *`, [...columns.map((column) => values[column]),params.data.id,companyId]);
-        if (!result.rowCount) return reply.code(404).send({ message: `${catalog.title} não encontrado nesta empresa.` });
+        const result = await pool.query(`UPDATE ${table} SET ${assignments.join(",")} WHERE id=$${columns.length + 1}${catalog.global ? "" : ` AND empresa_id=$${columns.length + 2}`} RETURNING *`, [...columns.map((column) => values[column]),params.data.id,...(catalog.global ? [] : [companyId])]);
+        if (!result.rowCount) return reply.code(404).send({ message: `${catalog.title} não encontrado.` });
         return result.rows[0];
       } catch (error) { return errorResponse(error, reply, `${catalog.title} já cadastrado com estes dados.`); }
     });
 
     app.delete(`/${catalog.path}/:id`, { preHandler: writeGuard }, async (request, reply) => {
-      const params = idParams.safeParse(request.params); const companyId = await activeCompany(request, reply); if (!companyId) return;
+      const params = idParams.safeParse(request.params); const companyId = catalog.global ? null : await activeCompany(request, reply); if (!catalog.global && !companyId) return;
       if (!params.success) return reply.code(400).send({ message: "Cadastro inválido." });
       for (const [refTable, refColumn] of catalog.dependencies ?? []) {
         const used = await pool.query(`SELECT 1 FROM ${refTable} WHERE ${refColumn}=$1 LIMIT 1`, [params.data.id]);
         if (used.rowCount) return reply.code(409).send({ message: `Não é possível excluir ${catalog.title.toLocaleLowerCase("pt-BR")}: há registros vinculados.` });
       }
       try {
-        const result = await pool.query(`DELETE FROM ${table} WHERE id=$1 AND empresa_id=$2 RETURNING id`, [params.data.id,companyId]);
-        if (!result.rowCount) return reply.code(404).send({ message: `${catalog.title} não encontrado nesta empresa.` });
+        const result = await pool.query(`DELETE FROM ${table} WHERE id=$1${catalog.global ? "" : " AND empresa_id=$2"} RETURNING id`, catalog.global ? [params.data.id] : [params.data.id,companyId]);
+        if (!result.rowCount) return reply.code(404).send({ message: `${catalog.title} não encontrado.` });
         return reply.code(204).send();
       } catch (error) { return errorResponse(error, reply, `Não foi possível excluir ${catalog.title.toLocaleLowerCase("pt-BR")}.`); }
     });
@@ -237,11 +237,8 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
   });
 
   app.get("/usuarios/artistas", { preHandler: readGuard }, async (request) => {
-    const companies = await actorCompanies(request.authUser!.id);
-    if (!companies.length) return [];
     const result = await pool.query(
-      "SELECT id,nome,empresa_id FROM artistas WHERE empresa_id=ANY($1::uuid[]) ORDER BY nome LIMIT 500",
-      [companies],
+      "SELECT id,nome FROM artistas WHERE status='ativo' ORDER BY nome",
     );
     return result.rows;
   });
@@ -256,8 +253,8 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     if (!data.empresaIds.includes(data.empresaPadraoId)) return reply.code(400).send({ message: "A empresa padrão deve estar entre as empresas selecionadas." });
     if (data.artistas.length) {
       const artistIds = [...new Set(data.artistas.map((item) => item.artistaId))];
-      const validArtists = await pool.query("SELECT id FROM artistas WHERE id=ANY($1::uuid[]) AND empresa_id=ANY($2::uuid[])", [artistIds,data.empresaIds]);
-      if (validArtists.rowCount !== artistIds.length) return reply.code(400).send({ message: "Um ou mais artistas não pertencem às empresas vinculadas." });
+      const validArtists = await pool.query("SELECT id FROM artistas WHERE id=ANY($1::uuid[]) AND status='ativo'", [artistIds]);
+      if (validArtists.rowCount !== artistIds.length) return reply.code(400).send({ message: "Selecione apenas artistas ativos." });
     }
     const token = randomBytes(32).toString("base64url"); const client = await pool.connect(); let userId = "";
     try {
@@ -299,8 +296,8 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     if (!data.empresaIds.includes(data.empresaPadraoId)) return reply.code(400).send({ message: "A empresa padrão deve estar entre as empresas selecionadas." });
     const artistIds = [...new Set(data.artistas.map((item) => item.artistaId))];
     if (artistIds.length) {
-      const validArtists = await pool.query("SELECT id FROM artistas WHERE id=ANY($1::uuid[]) AND empresa_id=ANY($2::uuid[])", [artistIds,data.empresaIds]);
-      if (validArtists.rowCount !== artistIds.length) return reply.code(400).send({ message: "Um ou mais artistas não pertencem às empresas vinculadas." });
+      const validArtists = await pool.query("SELECT id FROM artistas WHERE id=ANY($1::uuid[]) AND status='ativo'", [artistIds]);
+      if (validArtists.rowCount !== artistIds.length) return reply.code(400).send({ message: "Selecione apenas artistas ativos." });
     }
     const client = await pool.connect();
     try {

@@ -25,6 +25,8 @@ Em andamento. Nenhum corte ou publicação em produção foi executado.
 | Acesso anônimo a cadastros e acesso com token de usuário legado inativo | HTTP 401 nos dois casos. |
 | `pnpm build`, `pnpm lint` e `git diff --check` | Passaram. O build web mantém aviso de bundle acima de 500 KB. |
 
+Correção do catálogo de artistas: a migration 012 retirou `artistas.empresa_id`. A API agora retorna os 16 artistas globais no cadastro e os 15 ativos na aba Perfil do usuário; o artista inativo fica fora das opções de vínculo. A prévia de reimportação dos 23 CSVs passou com rollback após a mudança.
+
 ## Pendente para concluir a fase
 
 A comparação manual com o Bubble está descrita em [`roteiro-comparacao-bubble-fase12.md`](roteiro-comparacao-bubble-fase12.md). O usuário escolheu executar essa comparação sem compartilhar credenciais.

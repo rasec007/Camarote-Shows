@@ -40,6 +40,7 @@ Para autenticar o GitHub CLI no terminal, executar `gh auth login -h github.com 
 ## Próxima etapa do plano original (§18.5)
 
 - **Etapa 12 — Homologação e corte:** em andamento. Homologar os fluxos lado a lado por perfil, corrigir divergências encontradas e preparar a entrada em produção no VPS/EasyPanel. Evidências e pendências em [`homologacao-fase12.md`](homologacao-fase12.md).
+- **Correção durante a homologação:** artistas agora formam um catálogo global independente de empresa (migration 012). O usuário mantém vínculos separados com empresas e artistas; no perfil, aparecem todos os artistas ativos. Eventos continuam vinculados à empresa em que são criados.
 
 ## Validação e ambiente de teste — 15/10/2026
 
