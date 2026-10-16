@@ -1,8 +1,7 @@
 #!/bin/sh
 set -eu
 
-mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"
-until mc ready local; do
+until mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" && mc ready local; do
   sleep 2
 done
 for bucket in contratos financeiro rh arquivos; do
