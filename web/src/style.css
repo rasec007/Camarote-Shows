@@ -112,3 +112,20 @@ input[type="checkbox"]{accent-color:#C59B27}
 .artist-form-row{grid-template-columns:calc((100% - 48px)*.50) calc((100% - 48px)*.20) calc((100% - 48px)*.15) calc((100% - 48px)*.15)}@media(max-width:760px){.artist-form-row{grid-template-columns:1fr}}
 
 .artist-form-row-primary{grid-template-columns:minmax(0,15fr) minmax(0,45fr) minmax(0,40fr)}@media(max-width:760px){.artist-form-row-primary{grid-template-columns:1fr}}
+
+.event-form-row-primary{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;min-width:0}.event-form-row-primary.single{grid-template-columns:1fr}@media(max-width:760px){.event-form-row-primary{grid-template-columns:1fr}}
+
+.event-form-row-secondary{grid-column:1/-1;display:grid;grid-template-columns:calc((100% - 48px)/4 - 45px) calc((100% - 48px)/4) calc((100% - 48px)/4 + 45px) calc((100% - 48px)/4);gap:16px;min-width:0}@media(max-width:760px){.event-form-row-secondary{grid-template-columns:1fr}}
+
+
+
+
+html body select:not([multiple]){appearance:none;-webkit-appearance:none;padding-left:10px!important;padding-right:34px!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m2 2 4 4 4-4' fill='none' stroke='%23444' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 15px center;background-size:12px 8px}.company-select{padding-right:15px!important}html body .company-select select:not([multiple]){padding-right:0!important;background-image:none!important}
+
+.event-form-row-values{grid-column:1/-1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr)) minmax(90px,.5fr);gap:16px;min-width:0}.event-form-row-values>label{display:grid;align-content:start;gap:7px;min-width:0;font-size:11px;font-weight:600;color:#343b44}.event-form-row-values input{width:100%;min-width:0}@media(max-width:760px){.event-form-row-values{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.event-commission-field{width:100%;min-width:90px}
+
+@media(max-width:760px){.event-form-row-values>.event-commission-field{min-width:0}}
+
+.event-form-row-final{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;min-width:0}.event-form-row-final>label{display:grid;align-content:start;gap:7px;min-width:0;font-size:11px;font-weight:600;color:#343b44}.event-form-row-final select{width:100%;min-width:0}@media(max-width:760px){.event-form-row-final{grid-template-columns:repeat(2,minmax(0,1fr))}}
