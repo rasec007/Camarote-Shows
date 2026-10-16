@@ -9,6 +9,7 @@ import "./style.css";
 type Company = { id: string; nome: string };
 type Session = { id: string; email: string; nome: string; perfil: string; empresa_padrao_id: string | null; pode_visualizar_relatorios: boolean; empresas: Company[] };
 const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3333"; let accessToken = "";
+const sessionMarker = "camarote-session-present";
 const inactiveStatusClass=(value:unknown)=>String(value??"").trim().toLocaleLowerCase("pt-BR")=="inativo"?"status-inactive":undefined;
 let refreshInFlight: Promise<boolean> | undefined;
 const refreshAccessToken = () => refreshInFlight ??= fetch(`${apiUrl}/auth/refresh`, { method: "POST", credentials: "include" }).then(async (response) => { if (!response.ok) return false; accessToken = (await response.json()).accessToken; return true; }).catch(() => false).finally(() => { refreshInFlight = undefined; });
@@ -40,12 +41,23 @@ const menu:MobileMenuGroup[] = [
 ];
 function App() {
   const client = useQueryClient(); const [tab, setTab] = useState("Dashboard"); const [drawer, setDrawer] = useState(false); const [email, setEmail] = useState(""); const [senha, setSenha] = useState(""); const [companyId, setCompanyId] = useState(""); const [error, setError] = useState("");
-  const sessionQuery = useQuery<Session>({ queryKey: ["session"], queryFn: async () => { const result = await http("/auth/refresh", { method: "POST" }); accessToken = result.accessToken; return http("/auth/me"); } }); const session = sessionQuery.data;
+  const sessionQuery = useQuery<Session | null>({ queryKey: ["session"], queryFn: async () => {
+    if (localStorage.getItem(sessionMarker) !== "1") return null;
+    try {
+      const result = await http("/auth/refresh", { method: "POST" });
+      accessToken = result.accessToken;
+      return await http("/auth/me");
+    } catch {
+      accessToken = "";
+      localStorage.removeItem(sessionMarker);
+      return null;
+    }
+  } }); const session = sessionQuery.data;
   useEffect(() => { if (session?.empresa_padrao_id) setCompanyId(session.empresa_padrao_id); }, [session?.empresa_padrao_id]);
   useEffect(() => { if (!session) return; const socket = io(apiUrl.startsWith("/") ? window.location.origin : apiUrl, { path: "/socket.io", auth: { token: accessToken }, withCredentials: true }); socket.on("data.changed", (event: { empresa_id: string; table: string }) => { if (event.empresa_id === companyId) client.invalidateQueries({ queryKey: [event.table] }); }); return () => { socket.disconnect(); }; }, [session?.id, companyId, client]);
-  const login = useMutation({ mutationFn: async () => { const result = await http("/auth/login", { method: "POST", body: JSON.stringify({ email, senha }) }); accessToken = result.accessToken; return http("/auth/me"); }, onSuccess: (result) => client.setQueryData(["session"], result), onError: (e: Error) => setError(e.message) });
+  const login = useMutation({ mutationFn: async () => { const result = await http("/auth/login", { method: "POST", body: JSON.stringify({ email, senha }) }); accessToken = result.accessToken; return http("/auth/me"); }, onSuccess: (result) => { localStorage.setItem(sessionMarker, "1"); client.setQueryData(["session"], result); }, onError: (e: Error) => setError(e.message) });
   const company = useMutation({ mutationFn: (id: string) => http("/auth/empresa-padrao", { method: "PUT", body: JSON.stringify({ empresaId: id }) }), onSuccess: (_r, id) => { setCompanyId(id); client.invalidateQueries(); } });
-  const logout = useMutation({ mutationFn: () => http("/auth/logout", { method: "POST" }), onSettled: () => { accessToken = ""; client.clear(); setTab("Dashboard"); } });
+  const logout = useMutation({ mutationFn: () => http("/auth/logout", { method: "POST" }), onSettled: () => { accessToken = ""; localStorage.removeItem(sessionMarker); client.clear(); setTab("Dashboard"); } });
   if (sessionQuery.isPending) return <div className="mobile-loading" role="status" aria-live="polite"><span className="loading-spinner" aria-hidden="true"/><span>Aguarde, carregando!</span></div>;
   if (!session) return <main className="mobile-login"><img className="mobile-login-logo" src="/fundo-branco.avif" alt="Camarote Shows"/><section className="mobile-login-form"><h1>Login</h1><form onSubmit={(e) => { e.preventDefault(); login.mutate(); }}><label><span className="sr-only">E-mail</span><input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required/></label><label><span className="sr-only">Senha</span><MobilePasswordField placeholder="Senha" value={senha} onChange={(e) => setSenha(e.target.value)} autoComplete="current-password" required/></label>{error && <p className="error">{error}</p>}<button className="primary" disabled={login.isPending}>ENTRAR</button></form><button className="forgot" onClick={async () => { const value = prompt("Informe o e-mail do seu cadastro"); if (value) { await http("/auth/esqueci-senha", { method: "POST", body: JSON.stringify({ email: value }) }); toast.success("Se o cadastro estiver ativo, o link chegará pelo WhatsApp."); } }}>REDEFINIR MINHA SENHA</button></section></main>;
   const visible = menu.flatMap((group) => group.items ? group.items.filter((item)=>item.profiles.includes(session.perfil)) : (group.profiles??[]).includes(session.perfil) ? [{label:group.label,name:group.name??group.label,icon:group.icon,profiles:group.profiles??[]}] : []);
