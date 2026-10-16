@@ -39,6 +39,7 @@ yarn-error.log*
 
 # Legacy Bubble exports contain personal and financial records; keep them local.
 /db/*.csv
+/.local-backups/
 
 # vercel
 .vercel
