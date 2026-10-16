@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import type { PoolClient } from "pg";
 import {
   artistaCadastroSchema, bancoCadastroSchema, contratanteCadastroSchema, empresaCadastroSchema,
   pessoaCadastroSchema, planoContasCadastroSchema, usuarioCadastroSchema,
@@ -14,6 +15,89 @@ import { WahaApiService } from "../integrations/waha-api.service.js";
 const idParams = z.object({ id: z.string().uuid() });
 const nullable = (value: string | null | undefined) => value || null;
 const addressJson = (value: string | null | undefined) => value ? JSON.stringify({ formatted: value }) : null;
+const quoteIdentifier = (value: string) => `"${value.replaceAll('"', '""')}"`;
+
+function moduleLabel(table: string): string {
+  const labels: Record<string, string> = {
+    usuario_empresas: "Empresas",
+    usuario_artistas: "Artistas",
+    empresas: "Empresas",
+    eventos: "Eventos / Agenda",
+    contratos: "Contratos",
+    recebimentos_banda: "Banda / Recebimentos",
+    cobrancas: "Banda / Cobrança",
+    historicos_cobranca: "Banda / Cobrança",
+    negociacoes: "Banda / Negociações",
+    contas: "Financeiro / Pagar e Receber",
+    movimentacoes: "Financeiro / Pagar e Receber",
+    cheques: "Financeiro / Pagar e Receber",
+    planos_contas: "Financeiro / Plano de Contas",
+    arquivos: "Arquivos",
+    clientes: "Clientes",
+    fornecedores: "Fornecedores",
+    contratantes: "Contratantes",
+    artistas: "Artistas",
+    bancos: "Financeiro / Bancos",
+    documentos_rh: "RH",
+    planos_viagem: "Viagens",
+    auditoria: "Auditoria",
+  };
+  return labels[table] ?? table.split("_").map((part) => part.charAt(0).toLocaleUpperCase("pt-BR") + part.slice(1)).join(" ");
+}
+
+async function findUserModules(client: PoolClient, userId: string): Promise<string[]> {
+  const foreignKeys = await client.query<{ schema_name: string; table_name: string; column_name: string }>(
+    `SELECT DISTINCT source_ns.nspname AS schema_name, source_table.relname AS table_name, source_column.attname AS column_name
+     FROM pg_constraint fk
+     JOIN pg_class source_table ON source_table.oid=fk.conrelid
+     JOIN pg_namespace source_ns ON source_ns.oid=source_table.relnamespace
+     JOIN LATERAL unnest(fk.conkey, fk.confkey) AS key_columns(source_attnum, target_attnum) ON true
+     JOIN pg_attribute source_column ON source_column.attrelid=fk.conrelid AND source_column.attnum=key_columns.source_attnum
+     JOIN pg_attribute target_column ON target_column.attrelid=fk.confrelid AND target_column.attnum=key_columns.target_attnum
+     WHERE fk.contype='f' AND fk.confrelid=to_regclass('public.usuarios') AND target_column.attname='id'
+     ORDER BY source_ns.nspname, source_table.relname, source_column.attname`,
+  );
+  const modules = new Set<string>();
+  for (const foreignKey of foreignKeys.rows) {
+    // Session and access tokens are technical rows and are removed with the user; they are not module records.
+    if (foreignKey.table_name === "tokens_acesso" || foreignKey.table_name === "tokens_refresh") continue;
+    const table = `${quoteIdentifier(foreignKey.schema_name)}.${quoteIdentifier(foreignKey.table_name)}`;
+    const column = quoteIdentifier(foreignKey.column_name);
+    const linked = await client.query<{ linked: boolean }>(`SELECT EXISTS(SELECT 1 FROM ${table} WHERE ${column}=$1) AS linked`, [userId]);
+    if (!linked.rows[0]?.linked) continue;
+
+    if (foreignKey.table_name === "arquivos") {
+      const contexts = await client.query<{ contexto: string }>(
+        `SELECT DISTINCT contexto::text AS contexto FROM ${table} WHERE ${column}=$1`, [userId],
+      );
+      for (const { contexto } of contexts.rows) {
+        modules.add(({ evento: "Eventos / Agenda", contrato: "Contratos", financeiro: "Financeiro / Pagar e Receber", rh: "RH", geral: "Arquivos" } as Record<string, string>)[contexto] ?? "Arquivos");
+      }
+    } else if (foreignKey.table_name === "auditoria") {
+      const changedTables = await client.query<{ tabela: string }>(
+        `SELECT DISTINCT tabela FROM ${table} WHERE ${column}=$1`, [userId],
+      );
+      modules.add("Auditoria");
+      for (const { tabela: changedTable } of changedTables.rows) modules.add(moduleLabel(changedTable));
+    } else {
+      modules.add(moduleLabel(foreignKey.table_name));
+    }
+  }
+  return [...modules].sort((a, b) => a.localeCompare(b, "pt-BR"));
+}
+
+function userModulesMessage(modules: string[]): string {
+  return modules.length
+    ? `Não é possível excluir este usuário: existem vínculos nos módulos ${modules.join(", ")}.`
+    : "Este usuário não possui vínculos com outros módulos.";
+}
+
+function companyLinksMessage(bancos: boolean, usuarios: string[]): string {
+  const links: string[] = [];
+  if (bancos) links.push("há bancos vinculados");
+  if (usuarios.length) links.push(`ela está vinculada aos usuários ${usuarios.join(", ")}`);
+  return `Não é possível excluir esta empresa: ${links.join("; ")}.`;
+}
 
 async function actorCompanies(userId: string): Promise<string[]> {
   const result = await pool.query<{ empresa_id: string }>("SELECT empresa_id FROM usuario_empresas WHERE usuario_id=$1", [userId]);
@@ -101,17 +185,16 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     if (!params.success) return reply.code(400).send({ message: "Empresa inválida." });
     const empresaId = params.data.id;
     if (!(await hasEmpresaAccess(request.authUser!.id, empresaId))) return reply.code(404).send({ message: "Empresa não encontrada." });
-    const refs = await pool.query<{ bancos: boolean; eventos: boolean; contas: boolean; other_users: boolean; padrao: boolean }>(
+    const refs = await pool.query<{ bancos: boolean; eventos: boolean; contas: boolean; usuarios: string[]; padrao: boolean }>(
       `SELECT EXISTS(SELECT 1 FROM bancos WHERE empresa_id=$1) AS bancos,
        EXISTS(SELECT 1 FROM eventos WHERE empresa_id=$1) AS eventos,
        EXISTS(SELECT 1 FROM contas WHERE empresa_id=$1) AS contas,
-       EXISTS(SELECT 1 FROM usuario_empresas WHERE empresa_id=$1 AND usuario_id<>$2) AS other_users,
+       ARRAY(SELECT u.nome FROM usuario_empresas ue JOIN usuarios u ON u.id=ue.usuario_id WHERE ue.empresa_id=$1 AND ue.usuario_id<>$2 ORDER BY u.nome) AS usuarios,
        (SELECT padrao FROM empresas WHERE id=$1) AS padrao`, [empresaId, request.authUser!.id],
     );
     const found = refs.rows[0]!;
-    if (found.bancos) return reply.code(409).send({ message: "Não é possível excluir esta empresa: há bancos vinculados." });
+    if (found.bancos || found.usuarios.length) return reply.code(409).send({ message: companyLinksMessage(found.bancos, found.usuarios) });
     if (found.eventos || found.contas) return reply.code(409).send({ message: "Não é possível excluir a empresa porque existem eventos ou contas vinculados." });
-    if (found.other_users) return reply.code(409).send({ message: "Não é possível excluir a empresa: outros usuários ainda estão vinculados." });
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -125,6 +208,24 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(204).send();
     } catch(error) { await client.query("ROLLBACK"); return errorResponse(error, reply, "Não foi possível excluir a empresa."); }
     finally { client.release(); }
+  });
+
+  app.get("/empresas/:id/vinculos", { preHandler: writeGuard }, async (request, reply) => {
+    const params = idParams.safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ message: "Empresa inválida." });
+    if (!(await hasEmpresaAccess(request.authUser!.id, params.data.id))) return reply.code(404).send({ message: "Empresa não encontrada." });
+    const result = await pool.query<{ bancos: boolean; usuarios: string[] }>(
+      `SELECT EXISTS(SELECT 1 FROM bancos WHERE empresa_id=$1) AS bancos,
+       ARRAY(SELECT u.nome FROM usuario_empresas ue JOIN usuarios u ON u.id=ue.usuario_id WHERE ue.empresa_id=$1 AND ue.usuario_id<>$2 ORDER BY u.nome) AS usuarios`,
+      [params.data.id, request.authUser!.id],
+    );
+    const bancos = Boolean(result.rows[0]?.bancos);
+    const usuarios = result.rows[0]?.usuarios ?? [];
+    return {
+      bancos,
+      usuarios,
+      message: bancos || usuarios.length ? companyLinksMessage(bancos, usuarios) : "Esta empresa não possui bancos ou outros usuários vinculados.",
+    };
   });
 
   app.get("/empresas/:id/bancos", { preHandler: readGuard }, async (request, reply) => {
@@ -223,14 +324,14 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
 
   app.get("/usuarios", { preHandler: readGuard }, async (request, reply) => {
     const companies = await actorCompanies(request.authUser!.id);
-    if (!companies.length) return [];
     const query = z.object({ q: z.string().trim().max(120).optional() }).safeParse(request.query);
     if (!query.success) return reply.code(400).send({ message: "Filtro inválido." });
     const result = await pool.query(
       `SELECT u.id,u.email,u.nome,u.fone,u.perfil,u.status,u.pode_visualizar_relatorios,u.empresa_padrao_id,
        COALESCE((SELECT jsonb_agg(jsonb_build_object('id',e.id,'nome',e.nome) ORDER BY e.nome) FROM usuario_empresas ue JOIN empresas e ON e.id=ue.empresa_id WHERE ue.usuario_id=u.id), '[]'::jsonb) AS empresas,
        COALESCE((SELECT jsonb_agg(jsonb_build_object('artistaId',ua.artista_id,'nome',a.nome,'acessoTotal',ua.acesso_total) ORDER BY a.nome) FROM usuario_artistas ua JOIN artistas a ON a.id=ua.artista_id WHERE ua.usuario_id=u.id), '[]'::jsonb) AS artistas
-       FROM usuarios u WHERE EXISTS(SELECT 1 FROM usuario_empresas ue WHERE ue.usuario_id=u.id AND ue.empresa_id=ANY($1::uuid[]))
+       FROM usuarios u WHERE (NOT EXISTS(SELECT 1 FROM usuario_empresas own WHERE own.usuario_id=u.id)
+       OR EXISTS(SELECT 1 FROM usuario_empresas ue WHERE ue.usuario_id=u.id AND ue.empresa_id=ANY($1::uuid[])))
        AND ($2::text IS NULL OR u.nome ILIKE '%'||upper($2)||'%' OR u.email ILIKE '%'||lower($2)||'%') ORDER BY u.nome LIMIT 500`, [companies,query.data.q ?? null],
     );
     return result.rows;
@@ -250,7 +351,7 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     if (data.perfil === "super_administrador" && request.authUser!.perfil !== "super_administrador") return reply.code(403).send({ message: "Somente um superadministrador pode criar outro superadministrador." });
     const available = await actorCompanies(request.authUser!.id);
     if (data.empresaIds.some((id) => !available.includes(id))) return reply.code(403).send({ message: "Só é possível vincular o usuário às empresas em que você tem acesso." });
-    if (!data.empresaIds.includes(data.empresaPadraoId)) return reply.code(400).send({ message: "A empresa padrão deve estar entre as empresas selecionadas." });
+    if (data.empresaPadraoId && !data.empresaIds.includes(data.empresaPadraoId)) return reply.code(400).send({ message: "A empresa padrão deve estar entre as empresas selecionadas." });
     if (data.artistas.length) {
       const artistIds = [...new Set(data.artistas.map((item) => item.artistaId))];
       const validArtists = await pool.query("SELECT id FROM artistas WHERE id=ANY($1::uuid[]) AND status='ativo'", [artistIds]);
@@ -290,10 +391,10 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     }
     if (data.perfil === "super_administrador" && actor.perfil !== "super_administrador") return reply.code(403).send({ message: "Somente um superadministrador pode definir esse perfil." });
     const available = await actorCompanies(actor.id);
-    const target = await pool.query("SELECT 1 FROM usuario_empresas WHERE usuario_id=$1 AND empresa_id=ANY($2::uuid[])", [params.data.id,available]);
+    const target = await pool.query("SELECT 1 FROM usuarios u WHERE u.id=$1 AND (NOT EXISTS(SELECT 1 FROM usuario_empresas own WHERE own.usuario_id=u.id) OR EXISTS(SELECT 1 FROM usuario_empresas ue WHERE ue.usuario_id=u.id AND ue.empresa_id=ANY($2::uuid[])))", [params.data.id,available]);
     if (!target.rowCount) return reply.code(404).send({ message: "Usuário não encontrado nas suas empresas." });
     if (data.empresaIds.some((id) => !available.includes(id))) return reply.code(403).send({ message: "Só é possível vincular o usuário às empresas em que você tem acesso." });
-    if (!data.empresaIds.includes(data.empresaPadraoId)) return reply.code(400).send({ message: "A empresa padrão deve estar entre as empresas selecionadas." });
+    if (data.empresaPadraoId && !data.empresaIds.includes(data.empresaPadraoId)) return reply.code(400).send({ message: "A empresa padrão deve estar entre as empresas selecionadas." });
     const artistIds = [...new Set(data.artistas.map((item) => item.artistaId))];
     if (artistIds.length) {
       const validArtists = await pool.query("SELECT id FROM artistas WHERE id=ANY($1::uuid[]) AND status='ativo'", [artistIds]);
@@ -304,6 +405,7 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
       await client.query("BEGIN");
       await client.query("SET CONSTRAINTS usuarios_empresa_padrao_vinculada_fk DEFERRED");
       await client.query("INSERT INTO usuario_empresas(usuario_id,empresa_id) SELECT $1,unnest($2::uuid[]) ON CONFLICT DO NOTHING", [params.data.id,data.empresaIds]);
+      if (!data.empresaPadraoId) await client.query("UPDATE usuarios SET empresa_padrao_id=NULL WHERE id=$1", [params.data.id]);
       const result = await client.query("UPDATE usuarios SET nome=$1,fone=$2,perfil=$3,status=$4,pode_visualizar_relatorios=$5,empresa_padrao_id=$6,updated_at=now() WHERE id=$7", [data.nome,data.fone,data.perfil,data.status,data.podeVisualizarRelatorios,data.empresaPadraoId,params.data.id]);
       if (!result.rowCount) { await client.query("ROLLBACK"); return reply.code(404).send({ message: "Usuário não encontrado." }); }
       await client.query("SET CONSTRAINTS usuarios_empresa_padrao_vinculada_fk IMMEDIATE");
@@ -314,5 +416,62 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
       return { id: params.data.id, message: "Usuário atualizado." };
     } catch (error) { await client.query("ROLLBACK"); return errorResponse(error, reply, "Não foi possível atualizar o usuário."); }
     finally { client.release(); }
+  });
+
+  app.delete("/usuarios/:id", { preHandler: writeGuard }, async (request, reply) => {
+    const params = idParams.safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ message: "Usuário inválido." });
+    const actor = request.authUser!;
+    if (params.data.id === actor.id) return reply.code(409).send({ message: "Você não pode excluir o próprio usuário." });
+
+    const available = await actorCompanies(actor.id);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const target = await client.query(
+        "SELECT u.id FROM usuarios u WHERE u.id=$1 AND (NOT EXISTS(SELECT 1 FROM usuario_empresas own WHERE own.usuario_id=u.id) OR EXISTS(SELECT 1 FROM usuario_empresas ue WHERE ue.usuario_id=u.id AND ue.empresa_id=ANY($2::uuid[]))) FOR UPDATE OF u",
+        [params.data.id, available],
+      );
+      if (!target.rowCount) {
+        await client.query("ROLLBACK");
+        return reply.code(404).send({ message: "Usuário não encontrado nas suas empresas." });
+      }
+      const modules = await findUserModules(client, params.data.id);
+      if (modules.length) {
+        await client.query("ROLLBACK");
+        return reply.code(409).send({
+          message: userModulesMessage(modules),
+          modules,
+        });
+      }
+
+      await client.query("UPDATE usuarios SET empresa_padrao_id=NULL WHERE id=$1", [params.data.id]);
+      await client.query("DELETE FROM usuarios WHERE id=$1", [params.data.id]);
+      await client.query("COMMIT");
+      return reply.code(204).send();
+    } catch (error) {
+      await client.query("ROLLBACK");
+      return errorResponse(error, reply, "Não foi possível excluir o usuário.");
+    } finally {
+      client.release();
+    }
+  });
+
+  app.get("/usuarios/:id/vinculos", { preHandler: writeGuard }, async (request, reply) => {
+    const params = idParams.safeParse(request.params);
+    if (!params.success) return reply.code(400).send({ message: "Usuário inválido." });
+    const available = await actorCompanies(request.authUser!.id);
+    const client = await pool.connect();
+    try {
+      const target = await client.query(
+        "SELECT 1 FROM usuarios u WHERE u.id=$1 AND (NOT EXISTS(SELECT 1 FROM usuario_empresas own WHERE own.usuario_id=u.id) OR EXISTS(SELECT 1 FROM usuario_empresas ue WHERE ue.usuario_id=u.id AND ue.empresa_id=ANY($2::uuid[])))",
+        [params.data.id, available],
+      );
+      if (!target.rowCount) return reply.code(404).send({ message: "Usuário não encontrado nas suas empresas." });
+      const modules = await findUserModules(client, params.data.id);
+      return { modules, message: userModulesMessage(modules) };
+    } finally {
+      client.release();
+    }
   });
 }

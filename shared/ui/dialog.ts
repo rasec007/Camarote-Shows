@@ -5,6 +5,7 @@ type DialogOptions = {
   message: string;
   confirmLabel?: string;
   email?: boolean;
+  closeOnly?: boolean;
   onConfirm: (value: string) => void | Promise<void>;
   onError: (error: unknown) => void;
 };
@@ -27,6 +28,12 @@ export function showSystemDialog(options: DialogOptions) {
   const form = dialog.querySelector("form")!;
   const submit = dialog.querySelector<HTMLButtonElement>(".app-system-dialog-submit")!;
   submit.textContent = options.confirmLabel ?? "Confirmar";
+  const cancel = dialog.querySelector<HTMLButtonElement>(".app-system-dialog-cancel")!;
+  if (options.closeOnly) {
+    dialog.querySelector<HTMLButtonElement>(".app-system-dialog-close")!.hidden = true;
+    cancel.textContent = "Fechar";
+    submit.hidden = true;
+  }
   let input: HTMLInputElement | undefined;
   if (options.email) {
     const label = document.createElement("label");
@@ -45,7 +52,7 @@ export function showSystemDialog(options: DialogOptions) {
   }
   let pending = false;
   const close = () => { if (!pending) dialog.close(); };
-  dialog.querySelector(".app-system-dialog-cancel")!.addEventListener("click", close);
+  cancel.addEventListener("click", close);
   dialog.querySelector(".app-system-dialog-close")!.addEventListener("click", close);
   dialog.addEventListener("click", (event) => { if (event.target === dialog) {
     const bounds = dialog.getBoundingClientRect();
@@ -55,6 +62,7 @@ export function showSystemDialog(options: DialogOptions) {
   dialog.addEventListener("close", () => dialog.remove(), { once: true });
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (options.closeOnly) return;
     if (pending) return;
     pending = true;
     dialog.setAttribute("aria-busy", "true");

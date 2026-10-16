@@ -70,8 +70,8 @@ export const planoContasCadastroSchema = z.object({
 });
 export const usuarioCadastroSchema = z.object({
   email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()), nome: textUpper,
-  fone: z.string().trim().min(8).max(30), perfil: perfilSchema, empresaIds: z.array(z.string().uuid()).min(1).refine((ids) => new Set(ids).size === ids.length, "Não repita empresas."),
-  empresaPadraoId: z.string().uuid(), status: statusSchema.default("ativo"),
+  fone: z.string().trim().min(8).max(30), perfil: perfilSchema, empresaIds: z.array(z.string().uuid()).default([]).refine((ids) => new Set(ids).size === ids.length, "Não repita empresas."),
+  empresaPadraoId: z.string().uuid().nullable().default(null), status: statusSchema.default("ativo"),
   podeVisualizarRelatorios: z.boolean().default(false),
   artistas: z.array(z.object({ artistaId: z.string().uuid(), acessoTotal: z.boolean() })).default([]).refine((items) => new Set(items.map((item) => item.artistaId)).size === items.length, "Não repita artistas."),
 });

@@ -5,6 +5,7 @@ import { io } from "socket.io-client";
 import { Building2, CalendarDays, ChartNoAxesCombined, Eye, EyeOff, FileText, LogOut, MapPin, Menu, Plus, Wallet, X, type LucideIcon } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { showSystemDialog } from "../../shared/ui/dialog";
+import "../../shared/ui/toast-progress.css";
 import "./style.css";
 
 type Company = { id: string; nome: string };
@@ -14,7 +15,7 @@ const sessionMarker = "camarote-session-present";
 const inactiveStatusClass=(value:unknown)=>String(value??"").trim().toLocaleLowerCase("pt-BR")=="inativo"?"status-inactive":undefined;
 const confirmAction=(message:string,onConfirm:()=>void)=>showSystemDialog({title:"Confirmar operação",message,onConfirm,onError:(error)=>toast.error(error instanceof Error?error.message:"Não foi possível concluir a operação.")});
 let refreshInFlight: Promise<boolean> | undefined;
-const refreshAccessToken = () => refreshInFlight ??= fetch(`${apiUrl}/auth/refresh`, { method: "POST", credentials: "include" }).then(async (response) => { if (!response.ok) return false; accessToken = (await response.json()).accessToken; return true; }).catch(() => false).finally(() => { refreshInFlight = undefined; });
+const refreshAccessToken = () => refreshInFlight ??= fetch(`${apiUrl}/auth/refresh`, { method: "POST", credentials: "include" }).then(async (response) => { if (!response.ok) { if (response.status === 401) { accessToken = ""; localStorage.removeItem(sessionMarker); } return false; } accessToken = (await response.json()).accessToken; return true; }).catch(() => false).finally(() => { refreshInFlight = undefined; });
 const http = async (path: string, init: RequestInit = {}) => { const send = () => fetch(`${apiUrl}${path}`, { ...init, credentials: "include", headers: { ...(init.body === undefined || init.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), ...init.headers } }); let response = await send(); if (response.status === 401 && !["/auth/login", "/auth/refresh", "/auth/logout"].includes(path) && await refreshAccessToken()) response = await send(); if (!response.ok) throw new Error((await response.json().catch(() => null))?.message ?? "Não foi possível concluir a operação."); return response.status === 204 ? undefined : response.json(); };
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 const allProfiles = ["super_administrador", "administrador", "financeiro", "contrato", "agenda", "vendedor", "produtor"];
@@ -46,8 +47,7 @@ function App() {
   const sessionQuery = useQuery<Session | null>({ queryKey: ["session"], queryFn: async () => {
     if (localStorage.getItem(sessionMarker) !== "1") return null;
     try {
-      const result = await http("/auth/refresh", { method: "POST" });
-      accessToken = result.accessToken;
+      if (!(await refreshAccessToken())) return null;
       return await http("/auth/me");
     } catch {
       accessToken = "";

@@ -128,10 +128,28 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const found = await client.query<{ id: string; usuario_id: string }>("SELECT id,usuario_id FROM tokens_acesso WHERE token_hash=$1 AND finalidade='convite' AND usado_em IS NULL AND expira_em>now() FOR UPDATE", [hashToken(parsed.data.token)]);
-      if (!found.rowCount) { await client.query("ROLLBACK"); return reply.code(400).send({ message: "O link expirou ou já foi usado." }); }
-      await client.query("UPDATE usuarios SET senha_hash=$1,email_verificado_em=now(),updated_at=now() WHERE id=$2", [await hashPassword(parsed.data.senha), found.rows[0]!.usuario_id]);
-      await client.query("UPDATE tokens_acesso SET usado_em=now() WHERE id=$1", [found.rows[0]!.id]);
+      const found = await client.query<{ id: string; usuario_id: string; usado_em: Date | null; vigente: boolean }>(
+        "SELECT id,usuario_id,usado_em,expira_em>now() AS vigente FROM tokens_acesso WHERE token_hash=$1 AND finalidade='convite' FOR UPDATE",
+        [hashToken(parsed.data.token)],
+      );
+      const invite = found.rows[0];
+      if (!invite) {
+        request.log.warn({ reason: "not_found" }, "Convite de primeiro acesso não encontrado");
+        await client.query("ROLLBACK");
+        return reply.code(400).send({ message: "Este convite não foi reconhecido pelo servidor. Solicite um novo link." });
+      }
+      if (invite.usado_em) {
+        request.log.info({ userId: invite.usuario_id, reason: "already_used" }, "Convite de primeiro acesso já utilizado");
+        await client.query("ROLLBACK");
+        return reply.code(400).send({ message: "Este convite já foi utilizado. Entre com sua senha ou solicite a redefinição." });
+      }
+      if (!invite.vigente) {
+        request.log.info({ userId: invite.usuario_id, reason: "expired" }, "Convite de primeiro acesso expirado");
+        await client.query("ROLLBACK");
+        return reply.code(400).send({ message: "Este convite expirou. Solicite um novo link." });
+      }
+      await client.query("UPDATE usuarios SET senha_hash=$1,email_verificado_em=now(),updated_at=now() WHERE id=$2", [await hashPassword(parsed.data.senha), invite.usuario_id]);
+      await client.query("UPDATE tokens_acesso SET usado_em=now() WHERE id=$1", [invite.id]);
       await client.query("COMMIT");
       return reply.code(204).send();
     } catch (error) { await client.query("ROLLBACK"); throw error; }
@@ -160,11 +178,29 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const found = await client.query<{ id: string; usuario_id: string }>("SELECT id,usuario_id FROM tokens_acesso WHERE token_hash=$1 AND finalidade='redefinicao' AND usado_em IS NULL AND expira_em>now() FOR UPDATE", [hashToken(parsed.data.token)]);
-      if (!found.rowCount) { await client.query("ROLLBACK"); return reply.code(400).send({ message: "O link expirou ou já foi usado." }); }
-      const userId = found.rows[0]!.usuario_id;
+      const found = await client.query<{ id: string; usuario_id: string; usado_em: Date | null; vigente: boolean }>(
+        "SELECT id,usuario_id,usado_em,expira_em>now() AS vigente FROM tokens_acesso WHERE token_hash=$1 AND finalidade='redefinicao' FOR UPDATE",
+        [hashToken(parsed.data.token)],
+      );
+      const reset = found.rows[0];
+      if (!reset) {
+        request.log.warn({ reason: "not_found" }, "Link de redefinição de senha não encontrado");
+        await client.query("ROLLBACK");
+        return reply.code(400).send({ message: "Este link de redefinição não foi reconhecido pelo servidor. Solicite um novo link." });
+      }
+      if (reset.usado_em) {
+        request.log.info({ userId: reset.usuario_id, reason: "already_used_or_replaced" }, "Link de redefinição de senha já utilizado ou substituído");
+        await client.query("ROLLBACK");
+        return reply.code(400).send({ message: "Este link já foi utilizado ou substituído por uma solicitação mais recente. Solicite um novo link." });
+      }
+      if (!reset.vigente) {
+        request.log.info({ userId: reset.usuario_id, reason: "expired" }, "Link de redefinição de senha expirado");
+        await client.query("ROLLBACK");
+        return reply.code(400).send({ message: "Este link de redefinição expirou. Solicite um novo link." });
+      }
+      const userId = reset.usuario_id;
       await client.query("UPDATE usuarios SET senha_hash=$1,updated_at=now() WHERE id=$2", [await hashPassword(parsed.data.senha), userId]);
-      await client.query("UPDATE tokens_acesso SET usado_em=now() WHERE usuario_id=$1 AND finalidade='redefinicao' AND usado_em IS NULL", [userId]);
+      await client.query("UPDATE tokens_acesso SET usado_em=now() WHERE id=$1", [reset.id]);
       await client.query("DELETE FROM tokens_refresh WHERE usuario_id=$1", [userId]);
       await client.query("COMMIT");
       return reply.code(204).send();

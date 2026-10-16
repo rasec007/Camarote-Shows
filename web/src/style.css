@@ -73,3 +73,5 @@ input[type="checkbox"]{accent-color:#C59B27}
 .company-user-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.company-user-options>label{display:grid;gap:7px;min-width:0;font-size:11px;font-weight:600;color:#343b44}
 @media(max-width:760px){.company-user-options{grid-template-columns:1fr}}
 .password-requirements{display:grid;gap:7px;margin:-3px 0 5px;padding:0;list-style:none;color:#c5c9cf;font-size:12px}.password-requirements li{display:flex;align-items:center;gap:8px;transition:color .15s ease}.password-requirements li>span{width:16px;text-align:center;font-size:13px}.password-requirements li.met{color:#27834a}
+.bank-list{padding-inline:24px}.catalog-modal>.table-wrap{margin-inline:24px}
+@media(max-width:760px){.bank-list{padding-inline:16px}.catalog-modal>.table-wrap{margin-inline:16px}}
