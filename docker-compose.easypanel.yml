@@ -62,8 +62,8 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-camarote}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-camarote_shows}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Defina um segredo JWT de 32+ caracteres}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Defina um segredo JWT de 32+ caracteres}
-      WEB_ORIGIN: ${WEB_ORIGIN:-https://appcamaroteshows.com.br}
-      MOBILE_ORIGIN: ${MOBILE_ORIGIN:-https://mobile.appcamaroteshows.com.br}
+      WEB_ORIGIN: ${WEB_ORIGIN:-https://appcamaroteshows.c2net.com.br}
+      MOBILE_ORIGIN: ${MOBILE_ORIGIN:-https://mobile.appcamaroteshows.c2net.com.br}
       COOKIE_SECURE: "true"
       WAHA_API_URL: ${WAHA_API_URL:-}
       WAHA_API_KEY: ${WAHA_API_KEY:-}
