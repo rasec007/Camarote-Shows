@@ -6,7 +6,7 @@ Em andamento. Nenhum corte ou publicação em produção foi executado.
 
 ## Dados de partida
 
-- PostgreSQL 18 nativo no WSL, banco `camarote_db` na porta 5434, com 11 migrations aplicadas.
+- PostgreSQL 18 nativo no WSL, banco `camarote_db` na porta 5434, com 12 migrations aplicadas.
 - Carga de 23 CSVs exportados: 3 empresas legadas, 16 artistas, 5 clientes, 4 contratantes, 3 fornecedores, 3 bancos, 5 eventos, 1 contrato, 11 usuários e 12 auditorias legadas.
 - Há também uma empresa local criada no bootstrap. Dez usuários legados estão inativos e sem senha importada; a conta bootstrap está ativa.
 - Dos 17 vínculos usuário–artista exportados, 7 referem artistas presentes no CSV e foram importados. Os outros 10 apontam para artistas ausentes no export.
