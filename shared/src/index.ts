@@ -12,6 +12,20 @@ export const perfilSchema = z.enum([
 
 export const statusUsuarioSchema = z.enum(["ativo", "inativo"]);
 
+export const passwordRequirements = [
+  { id: "length", label: "Mínimo de 12 caracteres", test: (value: string) => value.length >= 12 },
+  { id: "letter", label: "Pelo menos uma letra", test: (value: string) => /\p{L}/u.test(value) },
+  { id: "number", label: "Pelo menos um número", test: (value: string) => /\p{N}/u.test(value) },
+  { id: "uppercase", label: "Pelo menos uma letra maiúscula", test: (value: string) => /\p{Lu}/u.test(value) },
+  { id: "special", label: "Pelo menos um caractere especial", test: (value: string) => /[^\p{L}\p{N}\s]/u.test(value) },
+] as const;
+
+export const senhaSchema = z.string().max(128, "A senha deve ter no máximo 128 caracteres.").superRefine((value, context) => {
+  for (const requirement of passwordRequirements) {
+    if (!requirement.test(value)) context.addIssue({ code: "custom", message: requirement.label });
+  }
+});
+
 export const loginSchema = z.object({
   email: z.string().email().transform((value) => value.trim().toLowerCase()),
   senha: z.string().min(1),

@@ -1,6 +1,7 @@
 import "./env.js";
 import { hashPassword } from "./auth.js";
 import { pool } from "./database.js";
+import { senhaSchema } from "@camarote/shared";
 
 const client = await pool.connect();
 try {
@@ -16,8 +17,8 @@ try {
     const name = process.env.BOOTSTRAP_ADMIN_NAME?.trim();
     const companyName = process.env.BOOTSTRAP_COMPANY_NAME?.trim();
 
-    if (!email || !password || password.length < 12 || !name || !companyName) {
-      throw new Error("Configure e-mail, senha de 12+ caracteres, nome do administrador e nome da empresa no ambiente.");
+    if (!email || !password || !senhaSchema.safeParse(password).success || !name || !companyName) {
+      throw new Error("Configure e-mail, senha forte, nome do administrador e nome da empresa no ambiente.");
     }
 
     const company = await client.query<{ id: string }>("INSERT INTO empresas(nome,padrao) VALUES($1,true) RETURNING id", [companyName]);

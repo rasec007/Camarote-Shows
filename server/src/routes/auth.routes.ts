@@ -1,13 +1,12 @@
 import { randomBytes } from "node:crypto";
 import argon2 from "argon2";
-import { loginSchema, perfilSchema, type Perfil } from "@camarote/shared";
+import { loginSchema, perfilSchema, senhaSchema, type Perfil } from "@camarote/shared";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { authenticate, authorize, hashPassword, hashToken, issueRefreshToken, issueSession } from "../auth.js";
 import { pool } from "../database.js";
 import { EvolutionApiService } from "../integrations/evolution-api.service.js";
 
-const senhaSchema = z.string().min(12, "A senha deve ter pelo menos 12 caracteres.").max(128);
 const conviteSchema = z.object({
   email: z.string().email(), nome: z.string().min(1), fone: z.string().min(8),
   perfil: perfilSchema, empresaIds: z.array(z.string().uuid()).min(1),
