@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { authenticate, authorize, hashPassword, hashToken, issueRefreshToken, issueSession } from "../auth.js";
 import { pool } from "../database.js";
-import { EvolutionApiService } from "../integrations/evolution-api.service.js";
+import { WahaApiService } from "../integrations/waha-api.service.js";
 
 const conviteSchema = z.object({
   email: z.string().email(), nome: z.string().min(1), fone: z.string().min(8),
@@ -14,7 +14,7 @@ const conviteSchema = z.object({
 });
 
 export async function authRoutes(app: FastifyInstance): Promise<void> {
-  const evolution = new EvolutionApiService();
+  const whatsapp = new WahaApiService();
 
   app.post("/login", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (request, reply) => {
     const parsed = loginSchema.safeParse(request.body);
@@ -109,10 +109,10 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       await client.query("COMMIT");
       const accessUrl = `${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/primeiro-acesso?token=${encodeURIComponent(token)}`;
       try {
-        await evolution.sendText(data.fone, `Olá ${data.nome}, seu acesso ao Camarote Shows foi criado. Defina sua senha neste link (válido por 48 horas): ${accessUrl}`);
+        await whatsapp.sendText(data.fone, `Olá ${data.nome}, seu acesso ao Camarote Shows foi criado. Defina sua senha neste link (válido por 48 horas): ${accessUrl}`);
       } catch (error) {
-        request.log.error({ err: error, userId }, "Não foi possível enviar o convite pela Evolution API");
-        return reply.code(502).send({ message: "Usuário criado, mas o convite não foi enviado. Confira a Evolution API e use 'Esqueci minha senha' para receber o link." });
+        request.log.error({ err: error, userId }, "Não foi possível enviar o convite pela WAHA");
+        return reply.code(502).send({ message: "Usuário criado, mas o convite não foi enviado. Confira a WAHA e use 'Esqueci minha senha' para receber o link." });
       }
       return reply.code(201).send({ id: userId, message: "Convite enviado pelo WhatsApp." });
     } catch (error) {
@@ -148,7 +148,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       await pool.query("UPDATE tokens_acesso SET usado_em=now() WHERE usuario_id=$1 AND finalidade='redefinicao' AND usado_em IS NULL", [user.id]);
       await pool.query("INSERT INTO tokens_acesso(usuario_id,token_hash,finalidade,expira_em) VALUES($1,$2,'redefinicao',now()+interval '30 minutes')", [user.id, hashToken(token)]);
       try {
-        await evolution.sendText(user.fone, `Olá ${user.nome}, use este link para redefinir sua senha do Camarote Shows (válido por 30 minutos): ${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/redefinir-senha?token=${encodeURIComponent(token)}`);
+        await whatsapp.sendText(user.fone, `Olá ${user.nome}, use este link para redefinir sua senha do Camarote Shows (válido por 30 minutos): ${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/redefinir-senha?token=${encodeURIComponent(token)}`);
       } catch (error) { request.log.error({ err: error, userId: user.id }, "Falha ao enviar link de redefinição"); }
     }
     return reply.send({ message: "Se o cadastro existir, enviaremos um link de redefinição pelo WhatsApp." });

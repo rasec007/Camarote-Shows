@@ -34,7 +34,7 @@ BOOTSTRAP_COMPANY_NAME=NOME_DA_EMPRESA_INICIAL
 
 A senha em `DATABASE_URL` precisa ser codificada para URL quando tiver caracteres reservados, como `@` (`%40`). `localhost` dentro da aplicação indica o próprio contêiner, não o PostgreSQL do VPS. Se usar um banco já populado, as quatro variáveis `BOOTSTRAP_*` são opcionais; o bootstrap não modifica usuários existentes. Após o primeiro login, remova as quatro variáveis e faça novo deploy. `PG_POOL_MAX` é opcional; `DB_POOL_MAX` não é usado.
 
-O comando inicial do contêiner aplica as migrations, executa o bootstrap seguro e inicia a API. Verifique `https://api.appcamaroteshows.c2net.com.br/health` antes de publicar os frontends. A resposta esperada é `{"status":"ok"}`. Configure `EVOLUTION_API_URL`, `EVOLUTION_API_KEY` e `EVOLUTION_INSTANCE` somente se for testar convites e redefinições por WhatsApp.
+O comando inicial do contêiner aplica as migrations, executa o bootstrap seguro e inicia a API. Verifique `https://api.appcamaroteshows.c2net.com.br/health` antes de publicar os frontends. A resposta esperada é `{"status":"ok"}`. Configure `WAHA_API_URL`, `WAHA_API_KEY` e `WAHA_SESSION` no ambiente da API para convites e redefinições via WhatsApp. Use a URL base do WAHA (por exemplo `https://waha.seudominio.com`), a chave enviada no cabeçalho `X-Api-Key` e o nome da sessão conectada (`session_01m52be3b7fs8ejr72ag6jq1yn`). A API chama `POST /api/sendText`.
 
 Se o MinIO for um serviço externo a este projeto, crie os buckets privados `contratos`, `financeiro`, `rh` e `arquivos` e dê acesso à chave da aplicação. A API armazena os arquivos nesse serviço; os frontends usam as URLs assinadas geradas pela API.
 
@@ -44,7 +44,7 @@ Se o MinIO for um serviço externo a este projeto, crie os buckets privados `con
 - Dockerfile: `web/Dockerfile`.
 - Domínio: `appcamaroteshows.c2net.com.br`, HTTPS, porta interna `80`.
 - Única variável necessária para o build: `VITE_API_URL=https://api.appcamaroteshows.c2net.com.br` (substitua pelo domínio real da API).
-- Não configure credenciais do banco, JWT, MinIO ou Evolution nesta aplicação.
+- Não configure credenciais do banco, JWT, MinIO ou WAHA nesta aplicação.
 
 ## 3. Mobile
 
@@ -52,7 +52,7 @@ Se o MinIO for um serviço externo a este projeto, crie os buckets privados `con
 - Dockerfile: `mobile/Dockerfile`.
 - Domínio: `mobile.appcamaroteshows.c2net.com.br`, HTTPS, porta interna `80`.
 - Única variável necessária para o build: `VITE_API_URL=https://api.appcamaroteshows.c2net.com.br` (o mesmo domínio usado no web).
-- Não configure credenciais do banco, JWT, MinIO ou Evolution nesta aplicação.
+- Não configure credenciais do banco, JWT, MinIO ou WAHA nesta aplicação.
 
 ## Ordem de validação
 

@@ -12,7 +12,7 @@ Para autenticar o GitHub CLI no terminal, executar `gh auth login -h github.com 
 
 ## Fases do plano mestre
 
-1. **Setup do monorepo** — Estruturar `server`, `web`, `mobile` e `shared`; configurar PostgreSQL/Docker, migrations, autenticação JWT e convites/reset via Evolution API.
+1. **Setup do monorepo** — Estruturar `server`, `web`, `mobile` e `shared`; configurar PostgreSQL/Docker, migrations, autenticação JWT e convites/reset via WAHA.
 2. **Casca web e mobile** — Criar layouts responsivos, menus por perfil, troca de empresa padrão, Socket.io e logout.
 3. **Cadastros** — Implementar empresas e bancos, clientes, fornecedores, artistas, contratantes, usuários e plano de contas.
 4. **Eventos** — Implementar orçamentos, bloqueios, conflitos de agenda, alertas, calendário e mapa.
@@ -25,10 +25,10 @@ Para autenticar o GitHub CLI no terminal, executar `gh auth login -h github.com 
 
 ## Estado atual
 
-- **Fase 1 — Setup do monorepo:** concluída em 14/10/2026. Inclui workspace pnpm, API Fastify, pacote compartilhado Zod, apps React/Vite web e PWA mobile, PostgreSQL 16, schema inicial completo, autenticação JWT com refresh cookie, Argon2id, convite e redefinição via Evolution API, Socket.io com PostgreSQL LISTEN/NOTIFY, MinIO privado com buckets e URLs assinadas e definição de implantação no VPS via EasyPanel.
+- **Fase 1 — Setup do monorepo:** concluída em 14/10/2026. Inclui workspace pnpm, API Fastify, pacote compartilhado Zod, apps React/Vite web e PWA mobile, PostgreSQL 16, schema inicial completo, autenticação JWT com refresh cookie, Argon2id, convite e redefinição via WAHA, Socket.io com PostgreSQL LISTEN/NOTIFY, MinIO privado com buckets e URLs assinadas e definição de implantação no VPS via EasyPanel.
 - **Fase 2 — Casca web e mobile:** concluída em 14/10/2026. Inclui shell responsivo web, shell mobile-first PWA, menus filtrados por perfil, seleção de empresa padrão com verificação de vínculo no backend, logout acessível, autenticação nos dois clientes, Socket.io e invalidação de cache TanStack Query. Telas dos módulos seguem como placeholders das próximas fases.
-- **Fase 3 — Cadastros:** concluída em 15/10/2026. Entrega: APIs e telas para empresas/bancos, clientes, fornecedores, artistas, contratantes, usuários com convites Evolution e vínculos de empresa/artista, plano de contas, validação CPF/CNPJ, normalização no backend e bloqueios de exclusão. Migration 003 aplica escopo por empresa.
-- **Fase 4 — Eventos:** concluída em 15/10/2026. Entrega: criação/edição de orçamento e bloqueio, checagem de conflito por artista/dia, alerta visual e WhatsApp via Evolution, agenda FullCalendar no web e fluxos mobile-first de proposta/bloqueio. A API impede exclusão de evento com contrato.
+- **Fase 3 — Cadastros:** concluída em 15/10/2026. Entrega: APIs e telas para empresas/bancos, clientes, fornecedores, artistas, contratantes, usuários com convites WAHA e vínculos de empresa/artista, plano de contas, validação CPF/CNPJ, normalização no backend e bloqueios de exclusão. Migration 003 aplica escopo por empresa.
+- **Fase 4 — Eventos:** concluída em 15/10/2026. Entrega: criação/edição de orçamento e bloqueio, checagem de conflito por artista/dia, alerta visual e WhatsApp via WAHA, agenda FullCalendar no web e fluxos mobile-first de proposta/bloqueio. A API impede exclusão de evento com contrato.
 - **Fase 5 — Contratos:** concluída em 15/10/2026. Entrega: geração 1:1 por evento, checklist, anexos privados MinIO/S3 com URL assinada, renegociação transacional, parcelas previstas, bloqueio por igualdade numérica exata no PostgreSQL, cancelamento e envio para cobrança com notificação Evolution. Migration 004 associa arquivos privados aos contratos.
 - **Fase 6 — Banda e cobrança:** concluída em 15/10/2026. Entrega: API e telas de Banda/Cobrança, filtros de período/estado/status/diária/produção, recebimentos associados à negociação com validação transacional concorrente no PostgreSQL, view `v_banda` com recebido/retido/saldo, baixa de produção/diária e histórico do Camarote com valor. O envio para cobrança grava o valor de Camarote e a data. Migration 005 atualiza a view e instala o limite; migrations 006/007 suportam importação auditável e removem default inválido de recebimento.
 - **Fase 7 — Financeiro completo:** concluída em 15/10/2026. Entrega: telas e APIs para contas a receber/pagar, retenções e ajustes de valor final, parcelas com trava de saldo, movimentações avulsas com todos os dados obrigatórios, filtros por período/plano/banco, saldos pelas views, exportação XLSX e impressão/PDF pelo navegador. Migration 008 adiciona anexos financeiros privados, índices e validação transacional no banco. Contas quitadas são exibidas como “Pago”.
@@ -50,7 +50,7 @@ Para autenticar o GitHub CLI no terminal, executar `gh auth login -h github.com 
 - A revisão visual adotou `exemplo/telas/index.html` como referência para a aplicação: moldura externa grafite, painel branco arredondado, cabeçalho superior com navegação em pílulas, tipografia Plus Jakarta Sans, cartões claros e formulários suaves. A tela de login segue a composição de `exemplo/telas/login.png`, com logo horizontal. Os campos e regras do financeiro conferem com §11.1–11.2, R28–R35 e §14.
 - Migration 008 aplicada no PostgreSQL local. Os endpoints `/financeiro/opcoes`, `/financeiro/contas?tipo=receber` e `/financeiro/movimentacoes` responderam HTTP 200 após autenticação. `pnpm build` e `git diff --check` concluíram sem erros; Vite mantém o aviso já conhecido de bundle web acima de 500 KB.
 - As rotas de catálogo, eventos e contratos responderam HTTP 200 após o login. A API de Banda e Cobrança respondeu HTTP 200; as listas vieram vazias porque o CSV não contém negociações/recebimentos e o contrato importado não está bloqueado.
-- A Evolution API aceitou o envio de uma mensagem de teste (HTTP 201) para o número informado pelo usuário.
+- A integração anterior com a Evolution API foi substituída por WAHA; mensagens exigem `WAHA_API_URL`, `WAHA_API_KEY` e `WAHA_SESSION` no ambiente da API.
 - Web em `http://localhost:5173/` e PWA mobile em `http://localhost:5174/` estão servindo para inspeção visual. Login foi validado com a conta bootstrap, sem exibir a senha.
 - O push das fases ainda está pendente: autenticação GitHub estava inválida na última verificação. Reautenticar no terminal e publicar os commits locais.
 

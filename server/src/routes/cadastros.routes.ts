@@ -9,7 +9,7 @@ import {
 import { z } from "zod";
 import { authorizeModulo, authenticate, hasEmpresaAccess, hashToken } from "../auth.js";
 import { pool } from "../database.js";
-import { EvolutionApiService } from "../integrations/evolution-api.service.js";
+import { WahaApiService } from "../integrations/waha-api.service.js";
 
 const idParams = z.object({ id: z.string().uuid() });
 const nullable = (value: string | null | undefined) => value || null;
@@ -49,7 +49,7 @@ const catalogs: Catalog[] = [
 ];
 
 export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
-  const evolution = new EvolutionApiService();
+  const whatsapp = new WahaApiService();
   const readGuard = [authenticate, authorizeModulo("cadastros", "leitura")];
   const writeGuard = [authenticate, authorizeModulo("cadastros", "escrita")];
 
@@ -271,8 +271,8 @@ export async function cadastrosRoutes(app: FastifyInstance): Promise<void> {
     } catch (error) { await client.query("ROLLBACK"); return errorResponse(error, reply, "Já existe um usuário com este e-mail."); }
     finally { client.release(); }
     const url = `${process.env.WEB_ORIGIN ?? "http://localhost:5173"}/primeiro-acesso?token=${encodeURIComponent(token)}`;
-    try { await evolution.sendText(data.fone, `Olá ${data.nome}, seu acesso ao Camarote Shows foi criado. Defina sua senha neste link, válido por 48 horas: ${url}`); }
-    catch (error) { request.log.error({ err: error, userId }, "Usuário criado, mas o convite não foi enviado"); return reply.code(502).send({ id: userId, message: "Usuário criado, mas o convite não foi enviado. Confira a Evolution API e solicite um novo acesso." }); }
+    try { await whatsapp.sendText(data.fone, `Olá ${data.nome}, seu acesso ao Camarote Shows foi criado. Defina sua senha neste link, válido por 48 horas: ${url}`); }
+    catch (error) { request.log.error({ err: error, userId }, "Usuário criado, mas o convite não foi enviado"); return reply.code(502).send({ id: userId, message: "Usuário criado, mas o convite não foi enviado. Confira a WAHA e solicite um novo acesso." }); }
     return reply.code(201).send({ id: userId, message: "Convite enviado pelo WhatsApp." });
   });
 

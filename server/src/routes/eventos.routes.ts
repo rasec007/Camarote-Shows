@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { authorizeModulo, authenticate, hasEmpresaAccess, hasArtistaAccess } from "../auth.js";
 import { pool } from "../database.js";
-import { EvolutionApiService } from "../integrations/evolution-api.service.js";
+import { WahaApiService } from "../integrations/waha-api.service.js";
 
 const idSchema = z.object({ id: z.string().uuid() });
 const bodySchema = z.object({
@@ -17,7 +17,7 @@ const bodySchema = z.object({
 });
 const blockSchema = z.object({ artista_id: z.string().uuid(), inicio: z.string().datetime(), informacoes: z.string().trim().max(4000).optional() });
 const upper = (v: string | undefined) => v?.trim().toLocaleUpperCase("pt-BR") || null;
-const evolution = new EvolutionApiService();
+const whatsapp = new WahaApiService();
 async function company(request: any, reply: any): Promise<string | null> {
   const id = request.authUser?.empresaPadraoId;
   if (!id) { reply.code(409).send({ message: "Selecione uma empresa padrão." }); return null; }
@@ -68,7 +68,7 @@ export async function eventosRoutes(app: FastifyInstance): Promise<void> {
       [empresaId,d.artista_id,d.contratante_id,d.cliente_id ?? null,upper(d.nome),d.tipo_agendamento,d.inicio,d.endereco?JSON.stringify({formatted:upper(d.endereco)}):null,upper(d.local),upper(d.cidade),upper(d.estado),d.cache,d.camarote,d.diaria,d.imposto,d.producao_local,d.comissao_pct ?? null,d.hospedagem,d.nota_fiscal,d.publico_privado,d.show_colocado,upper(d.informacoes),user.id]);
       if (conflict.rowCount) {
         const actor = await pool.query<{fone:string|null;nome:string}>("SELECT fone,nome FROM usuarios WHERE id=$1",[user.id]);
-        if (actor.rows[0]?.fone) void evolution.sendText(actor.rows[0].fone, `ATENÇÃO: existe outro evento do artista nesta data. Verifique a logística antes de prosseguir. Evento: ${upper(d.nome) ?? "SEM NOME"}.`).catch((error) => request.log.warn({err:error},"Alerta de conflito não enviado via Evolution API"));
+        if (actor.rows[0]?.fone) void whatsapp.sendText(actor.rows[0].fone, `ATENÇÃO: existe outro evento do artista nesta data. Verifique a logística antes de prosseguir. Evento: ${upper(d.nome) ?? "SEM NOME"}.`).catch((error) => request.log.warn({err:error},"Alerta de conflito não enviado via WAHA"));
       }
       return reply.code(201).send({ ...inserted.rows[0], aviso_conflito: conflict.rowCount ? "ATENÇÃO, JÁ EXISTE UMA DATA PARA ESTE ARTISTA NO DIA SELECIONADO. VERIFIQUE A LOGÍSTICA ANTES DE PROSSEGUIR!" : null });
     } catch (error) { return pgError(error,reply); }

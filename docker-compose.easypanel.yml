@@ -65,9 +65,9 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN:-https://appcamaroteshows.com.br}
       MOBILE_ORIGIN: ${MOBILE_ORIGIN:-https://mobile.appcamaroteshows.com.br}
       COOKIE_SECURE: "true"
-      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-}
-      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
-      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE:-}
+      WAHA_API_URL: ${WAHA_API_URL:-}
+      WAHA_API_KEY: ${WAHA_API_KEY:-}
+      WAHA_SESSION: ${WAHA_SESSION:-session_01m52be3b7fs8ejr72ag6jq1yn}
       S3_ENDPOINT: http://minio:9000
       S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-https://arquivos.appcamaroteshows.com.br}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Defina a chave de aplicação MinIO}

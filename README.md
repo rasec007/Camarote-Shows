@@ -13,7 +13,7 @@ Monorepo do ERP de agenciamento de shows. A especificação funcional fica em [`
 
 ## Desenvolvimento local
 
-Use Node.js 22+ e pnpm 10+. Copie `.env.example` para `.env`, configure segredos JWT aleatórios com pelo menos 32 caracteres e preencha as credenciais da Evolution API. O padrão de desenvolvimento do Compose é exclusivo para uso local.
+Use Node.js 22+ e pnpm 10+. Copie `.env.example` para `.env`, configure segredos JWT aleatórios com pelo menos 32 caracteres e preencha `WAHA_API_URL`, `WAHA_API_KEY` e `WAHA_SESSION` (a sessão ativa configurada neste projeto). A URL é a base do servidor WAHA, sem `/api/sendText`; a API acrescenta esse caminho ao enviar. O padrão de desenvolvimento do Compose é exclusivo para uso local.
 
 ```sh
 pnpm install
@@ -44,7 +44,7 @@ No painel do EasyPanel, encaminhe o serviço `minio` pela porta interna `9000` e
 
 ## Sessão e notificações
 
-O login retorna um access token de 15 minutos e grava um refresh token rotativo em cookie `HttpOnly`. Todas as mensagens externas para usuários devem ser enviadas pelo WhatsApp via `EvolutionApiService`, incluindo convites de novos usuários, redefinições de senha e avisos operacionais. O e-mail identifica a conta; o destinatário das mensagens é o celular/WhatsApp cadastrado. Convites e redefinições usam links de uso único. Números brasileiros com DDD recebem o DDI 55 automaticamente; números de outros países devem incluir `+` e DDI. O usuário precisa estar ativo em cada requisição autenticada. Socket.io autentica pelo access token e distribui notificações PostgreSQL apenas às empresas vinculadas ao usuário.
+O login retorna um access token de 15 minutos e grava um refresh token rotativo em cookie `HttpOnly`. Todas as mensagens externas para usuários devem ser enviadas pelo WhatsApp via `WahaApiService`, incluindo convites de novos usuários, redefinições de senha e avisos operacionais. O e-mail identifica a conta; o destinatário das mensagens é o celular/WhatsApp cadastrado. Convites e redefinições usam links de uso único. Números brasileiros com DDD recebem o DDI 55 automaticamente; números de outros países devem incluir `+` e DDI. O usuário precisa estar ativo em cada requisição autenticada. Socket.io autentica pelo access token e distribui notificações PostgreSQL apenas às empresas vinculadas ao usuário.
 
 A Fase 2 entrega o shell web/mobile, seleção de empresa padrão vinculada ao usuário, menus filtrados por perfil, logout sempre acessível no PWA e invalidação de cache via Socket.io. As telas dos módulos continuam como espaços reservados até suas fases de implementação.
 
