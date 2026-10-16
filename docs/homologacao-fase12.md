@@ -27,6 +27,8 @@ Em andamento. Nenhum corte ou publicação em produção foi executado.
 
 Correção do catálogo de artistas: a migration 012 retirou `artistas.empresa_id`. A API agora retorna os 16 artistas globais no cadastro e os 15 ativos na aba Perfil do usuário; o artista inativo fica fora das opções de vínculo. A prévia de reimportação dos 23 CSVs passou com rollback após a mudança.
 
+Permissão de relatórios: `pode_visualizar_relatorios` pertence ao usuário e é selecionada em Dados básicos. Os vínculos com artistas guardam apenas `acesso_total` por artista. O dashboard libera relatórios ao usuário com essa permissão, independentemente dos artistas vinculados; administradores têm acesso pelo perfil.
+
 ## Pendente para concluir a fase
 
 A comparação manual com o Bubble está descrita em [`roteiro-comparacao-bubble-fase12.md`](roteiro-comparacao-bubble-fase12.md). O usuário escolheu executar essa comparação sem compartilhar credenciais.

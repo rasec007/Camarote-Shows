@@ -60,7 +60,7 @@ const moduloPermissoes: Record<Modulo, { leitura: Perfil[]; escrita: Perfil[] }>
   financeiro: { leitura: ["super_administrador", "administrador", "financeiro"], escrita: ["super_administrador", "administrador", "financeiro"] },
   rh: { leitura: ["super_administrador", "administrador"], escrita: ["super_administrador", "administrador"] },
   auditoria: { leitura: ["super_administrador", "administrador"], escrita: ["super_administrador", "administrador"] },
-  dashboard: { leitura: ["super_administrador", "administrador", "financeiro"], escrita: [] },
+  dashboard: { leitura: ["super_administrador", "administrador", "financeiro", "contrato", "agenda", "vendedor", "produtor"], escrita: [] },
 };
 
 export function authorizeModulo(modulo: Modulo, acao: "leitura" | "escrita" = "leitura") {
