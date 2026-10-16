@@ -35,11 +35,11 @@ Para autenticar o GitHub CLI no terminal, executar `gh auth login -h github.com 
 - **Fase 8 — Cheques e RH:** concluída em 15/10/2026. Entrega: cheques por empresa/banco com número único, criação/edição/baixa/exclusão, filtros, impressão e XLSX; contracheque e rendimento/IR com upload privado MinIO/S3, filtros por ano/mês/tipo e acesso do funcionário apenas aos próprios documentos; plano de viagem com adiantamentos, despesas, anexos privados, saldo calculado por `v_planos_viagem` e encerramento. Migrations 009 e 010.
 - **Fase 9 — Dashboard:** concluída em 15/10/2026. Entrega: primeira tela após login no desktop e mobile, com rótulo Dashboard no menu; resumo mensal por categoria e plano, filtrado por empresa/ano/banco e calculado por `v_dashboard_mensal`; indicadores de eventos do mês, contratos bloqueados, contas a receber/pagar e vencidas. Perfis sem permissão de relatórios veem o painel inicial sem dados financeiros. Migration 011.
 - **Fase 10 — Auditoria:** concluída em 15/10/2026. Entrega: trigger PostgreSQL genérico para operações INSERT/UPDATE/DELETE, atribuição do usuário autenticado via contexto assíncrono do request e contexto transacional do driver `pg`, captura de antes/depois sem hash de senha, consulta por empresa/período/tabela/operação e detalhe dos registros com acesso restrito à administração.
+- **Fase 11 — Migração de dados:** concluída em 15/10/2026 para os 23 CSVs exportados disponíveis. A carga no PostgreSQL nativo contém 3 empresas legadas, 16 artistas, 5 clientes, 4 contratantes, 3 fornecedores, 3 bancos, 5 eventos, 1 contrato, 11 usuários e 12 auditorias legadas. Os 10 vínculos usuário–artista cujos artistas não constam no export foram identificados e ignorados; 7 vínculos válidos foram importados. Os CSVs financeiros contêm somente linhas sem dados de negócio, portanto as views de saldo estão vazias. Nenhum `unique id` duplicado foi encontrado. A busca por `bubble_id` e o tratamento de auditorias vazias foram corrigidos; nova prévia com rollback passou após a carga.
 
-## Próximas etapas do plano original (§18.5)
+## Próxima etapa do plano original (§18.5)
 
-- **Etapa 11 — Migração de dados:** conferir a carga completa dos CSVs legados, mapear os option sets e booleanos, identificar duplicidades e registros inválidos e validar os saldos recalculados pelas views.
-- **Etapa 12 — Homologação e corte:** homologar os fluxos lado a lado por perfil, corrigir divergências encontradas e preparar a entrada em produção no VPS/EasyPanel.
+- **Etapa 12 — Homologação e corte:** em andamento. Homologar os fluxos lado a lado por perfil, corrigir divergências encontradas e preparar a entrada em produção no VPS/EasyPanel. Evidências e pendências em [`homologacao-fase12.md`](homologacao-fase12.md).
 
 ## Validação e ambiente de teste — 15/10/2026
 
